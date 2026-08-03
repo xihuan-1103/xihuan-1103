@@ -1,0 +1,6 @@
+{
+  "name": "公路养护管理平台",
+  "description": "公路养护管理平台，支持项目管理（立项、变更、班组）及合同管理（确认池、台账）。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
