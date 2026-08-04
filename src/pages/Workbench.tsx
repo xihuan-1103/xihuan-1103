@@ -30,7 +30,10 @@ import {
   Droplets,
   Wind,
   TrendingUp,
-  Percent
+  Percent,
+  Ruler,
+  ShieldCheck,
+  BarChart3
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
@@ -498,21 +501,21 @@ export default function Workbench() {
   return (
     <div className="space-y-5 select-none text-gray-800 pb-12">
       
-      {/* Main Layout Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+      {/* Main Layout Grid with 2.5 : 5.0 : 2.5 ratio (xl:col-span-3, xl:col-span-6, xl:col-span-3) */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
         
-        {/* ================= LEFT COLUMN ================= */}
-        <div className="lg:col-span-4 flex flex-col gap-5">
+        {/* ================= LEFT COLUMN (2.5 / 10 = col-span-3) ================= */}
+        <div className="xl:col-span-3 flex flex-col gap-5 w-full">
           
-          {/* Section 1: Branding Card depending on Level */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 relative overflow-hidden group">
+          {/* Block 1: 组织信息 Branding Card */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 relative overflow-hidden group">
             {/* Background design graphics */}
-            <div className="absolute right-0 top-0 w-32 h-32 bg-blue-50/60 rounded-bl-full flex items-center justify-center -mr-6 -mt-6 transition-all group-hover:scale-105 duration-500">
-              <Building2 className="w-12 h-12 text-blue-500/20 mr-4 mt-4" />
+            <div className="absolute right-0 top-0 w-28 h-28 bg-blue-50/60 rounded-bl-full flex items-center justify-center -mr-6 -mt-6 transition-all group-hover:scale-105 duration-500">
+              <Building2 className="w-10 h-10 text-blue-500/20 mr-3 mt-3" />
             </div>
             
             <div className="relative z-10">
-              <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center gap-2 mb-2.5">
                 <span className="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded font-black tracking-wide">
                   {GET_BRANDING(orgLevel).sub}
                 </span>
@@ -520,12 +523,12 @@ export default function Workbench() {
                   {orgLevel}层级
                 </span>
               </div>
-              <h1 className="text-sm font-black text-slate-800 leading-snug mb-3.5 pr-14 group-hover:text-blue-700 transition-colors">
+              <h1 className="text-sm font-black text-slate-800 leading-snug mb-3 pr-8 group-hover:text-blue-700 transition-colors">
                 {GET_BRANDING(orgLevel).subtitle}
               </h1>
               
               {/* Short stats indicators */}
-              <div className="grid grid-cols-3 gap-2 py-2 border-t border-b border-slate-100 mb-3 text-center">
+              <div className="grid grid-cols-3 gap-1 py-2 border-t border-b border-slate-100 mb-2.5 text-center">
                 {GET_BRANDING(orgLevel).stats.map((stat, i) => (
                   <div key={i} className="flex flex-col">
                     <span className="text-[9px] text-slate-400 font-bold truncate" title={stat.label}>{stat.label}</span>
@@ -540,15 +543,15 @@ export default function Workbench() {
                 </div>
                 <div>2026-07</div>
               </div>
-              <p className="mt-2 text-[10px] text-slate-500 leading-relaxed bg-slate-50/80 p-2.5 rounded-lg border border-slate-100 italic">
+              <p className="mt-2 text-[10px] text-slate-500 leading-relaxed bg-slate-50/80 p-2 rounded-lg border border-slate-100 italic">
                 {GET_BRANDING(orgLevel).desc}
               </p>
             </div>
           </div>
 
-          {/* Section 1.5: Compact 产值日历 (Calendar Card) conditionally displayed on levels */}
+          {/* Block 2: 月度产值日历 (Calendar Card) */}
           {orgLevel === '集团' && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 select-none space-y-4">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 select-none space-y-3">
               <div className="flex items-center justify-between pb-2 border-b border-gray-100">
                 <div className="flex items-center gap-1.5">
                   <span className="w-1 h-3.5 bg-blue-600 rounded-full"></span>
@@ -556,338 +559,265 @@ export default function Workbench() {
                     <span>集团核心运营监控</span>
                   </h3>
                 </div>
-                <span className="text-[10px] text-gray-400 font-medium">实时统计大盘</span>
+                <span className="text-[10px] text-gray-400 font-medium">实时大盘</span>
               </div>
 
-              <div className="space-y-3.5">
-                <div className="space-y-1.5">
-                  <div className="flex justify-between items-center text-[11px]">
-                    <span className="text-gray-500 font-bold">季度总产值指标完成度</span>
-                    <span className="font-mono font-bold text-blue-600">78.4% <span className="text-gray-400 text-[10px] font-normal">(3.42 亿 / 4.3 亿)</span></span>
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <div className="flex justify-between items-center text-[10px]">
+                    <span className="text-gray-500 font-bold">季度总产值指标</span>
+                    <span className="font-mono font-bold text-blue-600">78.4%</span>
                   </div>
                   <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full transition-all" style={{ width: '78.4%' }}></div>
+                    <div className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full" style={{ width: '78.4%' }}></div>
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
-                  <div className="flex justify-between items-center text-[11px]">
-                    <span className="text-gray-500 font-bold">年度投资计划执行率</span>
-                    <span className="font-mono font-bold text-indigo-600">61.2% <span className="text-gray-400 text-[10px] font-normal">(15.3 亿 / 25 亿)</span></span>
+                <div className="space-y-1">
+                  <div className="flex justify-between items-center text-[10px]">
+                    <span className="text-gray-500 font-bold">年度投资计划</span>
+                    <span className="font-mono font-bold text-indigo-600">61.2%</span>
                   </div>
                   <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-indigo-500 to-violet-600 rounded-full transition-all" style={{ width: '61.2%' }}></div>
+                    <div className="h-full bg-gradient-to-r from-indigo-500 to-violet-600 rounded-full" style={{ width: '61.2%' }}></div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 pt-1">
-                  <div className="bg-emerald-50/50 rounded-lg p-2.5 border border-emerald-100 flex flex-col justify-center">
-                    <span className="text-[10px] text-emerald-700 font-bold">🌲 安全生产天数</span>
-                    <span className="text-sm font-black font-mono text-emerald-800 mt-1">1,842 天</span>
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <div className="bg-emerald-50/50 rounded-lg p-2 border border-emerald-100 flex flex-col justify-center">
+                    <span className="text-[9px] text-emerald-700 font-bold">🌲 安全天数</span>
+                    <span className="text-xs font-black font-mono text-emerald-800 mt-0.5">1,842 天</span>
                   </div>
-                  <div className="bg-sky-50/50 rounded-lg p-2.5 border border-sky-100 flex flex-col justify-center">
-                    <span className="text-[10px] text-sky-700 font-bold">🧭 巡检异常处置率</span>
-                    <span className="text-sm font-black font-mono text-sky-800 mt-1">99.8%</span>
+                  <div className="bg-sky-50/50 rounded-lg p-2 border border-sky-100 flex flex-col justify-center">
+                    <span className="text-[9px] text-sky-700 font-bold">🧭 处置率</span>
+                    <span className="text-xs font-black font-mono text-sky-800 mt-0.5">99.8%</span>
                   </div>
-                </div>
-
-                <div className="border-t border-gray-100/60 pt-2.5 text-[10px] text-gray-500 leading-relaxed bg-gray-50/50 p-2.5 rounded-lg border border-gray-100">
-                  💡 <span className="font-bold text-gray-700">集团管控提示：</span>
-                  当前共有 148 个在建标段，总体质量检验合格率 100%。针对浙北梅雨黄色预警，集团已联动并下达防汛抢险保障指令。
                 </div>
               </div>
             </div>
           )}
 
           {orgLevel === '区域中心' && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 select-none space-y-4">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 select-none space-y-3">
               <div className="flex items-center justify-between pb-2 border-b border-gray-100">
                 <div className="flex items-center gap-1.5">
                   <span className="w-1 h-3.5 bg-blue-600 rounded-full"></span>
                   <h3 className="font-bold text-xs text-gray-800 tracking-tight flex items-center gap-1">
-                    <span>区域在建项目进度</span>
+                    <span>区域项目进度</span>
                   </h3>
                 </div>
-                <span className="text-[10px] text-blue-600 bg-blue-50 border border-blue-100 px-1.5 py-0.2 rounded font-bold">杭州北中心</span>
+                <span className="text-[10px] text-blue-600 bg-blue-50 border border-blue-100 px-1 py-0.2 rounded font-bold">杭州北</span>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 {[
-                  { name: '杭徽高速日常养护', progress: '92.5%', amount: '450w/486w', color: 'from-blue-500 to-indigo-500' },
-                  { name: '沪杭甬日常养护', progress: '84.1%', amount: '320w/380w', color: 'from-indigo-500 to-purple-500' },
-                  { name: '申苏浙皖路面专项', progress: '70.3%', amount: '180w/256w', color: 'from-purple-500 to-pink-500' },
-                  { name: '杭州绕城北段大修', progress: '45.2%', amount: '120w/265w', color: 'from-pink-500 to-orange-500' }
+                  { name: '杭徽日常养护', progress: '92.5%', color: 'from-blue-500 to-indigo-500' },
+                  { name: '沪杭甬养护', progress: '84.1%', color: 'from-indigo-500 to-purple-500' },
+                  { name: '申苏浙皖路面', progress: '70.3%', color: 'from-purple-500 to-pink-500' },
+                  { name: '绕城北段大修', progress: '45.2%', color: 'from-pink-500 to-orange-500' }
                 ].map((proj, idx) => (
                   <div key={idx} className="space-y-1">
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-gray-700 font-bold truncate max-w-[150px]">{proj.name}</span>
-                      <span className="font-mono text-gray-400 font-semibold">{proj.progress} <span className="text-[9px] text-gray-300 font-normal">({proj.amount})</span></span>
+                    <div className="flex justify-between items-center text-[10px]">
+                      <span className="text-gray-700 font-bold truncate">{proj.name}</span>
+                      <span className="font-mono text-gray-500 font-semibold">{proj.progress}</span>
                     </div>
                     <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                      <div className={cn("h-full bg-gradient-to-r rounded-full transition-all", proj.color)} style={{ width: proj.progress }}></div>
+                      <div className={cn("h-full bg-gradient-to-r rounded-full", proj.color)} style={{ width: proj.progress }}></div>
                     </div>
                   </div>
                 ))}
-
-                <div className="border-t border-gray-100/60 pt-2 text-[10px] text-gray-500 leading-relaxed bg-gray-50/50 p-2 rounded-lg border border-gray-100">
-                  🚨 <span className="font-bold text-gray-700">区域安全提示：</span>
-                  杭州绕城北段因大雨导致作业面潮湿，已下达合理顺延指令，督导班组进行防汛防滑大排查。
-                </div>
               </div>
             </div>
           )}
 
           {orgLevel === '项目部' && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 select-none">
-              <div className="flex items-center justify-between gap-2 mb-3 border-b border-gray-100 pb-2">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-3.5 select-none space-y-3">
+              <div className="flex items-center justify-between gap-1 border-b border-gray-100 pb-2">
                 <div className="flex items-center gap-1.5">
                   <span className="w-1 h-3.5 bg-emerald-500 rounded-full"></span>
                   <h3 className="font-bold text-xs text-gray-800 tracking-tight flex items-center gap-1">
-                    <span>6月月度产值</span>
-                    <span className="text-gray-300 font-normal">|</span>
-                    <span className="text-emerald-600 bg-emerald-50 border border-emerald-100 px-1.5 py-0.2 rounded text-[10px] font-bold">
-                      {selectedDayObj ? getLunarDateStr(selectedDayObj.dayNum) : '四月廿五'}
-                    </span>
+                    <span>6月月度产值日历</span>
                   </h3>
                 </div>
-                <span className="text-[10px] text-gray-400 font-medium">
-                  点按日期查产值
-                </span>
+                <div className="flex items-center gap-1">
+                  <span className="bg-blue-50 text-blue-600 border border-blue-100 px-1.5 py-0.2 rounded text-[9px] font-bold">
+                    {JUNE_2026_DAYS.filter(d => d.hasCard).length}天有产值
+                  </span>
+                </div>
               </div>
 
-              {/* Calendar Controls */}
-              <div className="flex items-center justify-between mb-2 px-1">
-                <button 
-                  type="button"
-                  onClick={() => {
-                    alert("仅支持查看当前2026年06月份产值记账！");
-                  }}
-                  className="p-0.5 hover:bg-gray-50 border border-gray-200 text-gray-400 hover:text-gray-600 rounded transition-all cursor-pointer"
-                >
+              {/* Month Picker Header */}
+              <div className="flex items-center justify-between px-1">
+                <button type="button" className="p-0.5 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-700">
                   <ChevronLeft size={14} />
                 </button>
-                <span className="text-[11px] font-bold text-gray-700 font-mono">
-                  2026年06月
-                </span>
-                <button 
-                  type="button"
-                  onClick={() => {
-                    alert("仅支持查看当前2026年06月份产值记账！");
-                  }}
-                  className="p-0.5 hover:bg-gray-50 border border-gray-200 text-gray-400 hover:text-gray-600 rounded transition-all cursor-pointer"
-                >
+                <span className="text-xs font-black text-gray-800 font-mono">2026年06月</span>
+                <button type="button" className="p-0.5 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-700">
                   <ChevronRight size={14} />
                 </button>
               </div>
 
-              {/* Calendar Grid Header */}
-              <div className="grid grid-cols-7 gap-1 text-center mb-1 text-gray-400 text-[10px] font-bold border-b border-gray-50 pb-1">
-                <div>日</div>
-                <div>一</div>
-                <div>二</div>
-                <div>三</div>
-                <div>四</div>
-                <div>五</div>
-                <div>六</div>
+              {/* Weekday Labels */}
+              <div className="grid grid-cols-7 text-center text-[9px] font-bold text-gray-400">
+                {['一', '二', '三', '四', '五', '六', '日'].map((w, i) => (
+                  <span key={i}>{w}</span>
+                ))}
               </div>
 
-              {/* Calendar Grid Cells */}
-              <div className="grid grid-cols-7 gap-1 text-[11px]">
+              {/* Calendar Grid */}
+              <div className="grid grid-cols-7 gap-1">
                 {JUNE_2026_DAYS.map((day, idx) => {
-                  const isSelected = selectedDayObj?.dayNum === day.dayNum && selectedDayObj?.isPrevMonth === day.isPrevMonth;
-                  
-                  if (day.hasCard) {
+                  const isPad = day.isPrevMonth || day.isNextMonth;
+                  if (isPad) {
                     return (
-                      <div 
-                        key={idx}
-                        onClick={() => setSelectedDayObj(day)}
-                        className={cn(
-                          "flex flex-col items-center justify-center py-1 rounded border text-center cursor-pointer min-h-[36px] transition-all relative",
-                          isSelected 
-                            ? "border-emerald-500 bg-emerald-50/70 ring-1 ring-emerald-200 scale-[1.03] z-10 shadow-3xs" 
-                            : "border-blue-300 bg-blue-50/10 hover:border-emerald-400 hover:bg-emerald-50/10"
-                        )}
-                      >
-                        <span className="text-[10px] font-bold text-gray-700 leading-none">{day.dayNum}</span>
-                        <span className="text-[8px] font-bold text-emerald-600 font-mono mt-0.5 leading-none scale-90">
-                          ¥3.1w
-                        </span>
-                        <span className="absolute top-0.5 right-0.5 w-1 h-1 rounded-full bg-emerald-500"></span>
+                      <div key={idx} className="h-8 flex items-center justify-center text-[10px] text-gray-300 font-mono">
+                        {day.dayNum}
                       </div>
                     );
                   }
-
+                  const isSelected = selectedDayObj?.dayNum === day.dayNum && !isPad;
                   return (
-                    <div 
+                    <div
                       key={idx}
-                      onClick={() => {
-                        if (!day.isPrevMonth && !day.isNextMonth) {
-                          setSelectedDayObj(day);
-                        }
-                      }}
+                      onClick={() => setSelectedDayObj(day)}
                       className={cn(
-                        "flex flex-col items-center justify-center py-1 rounded text-center min-h-[36px] transition-all relative border border-transparent select-none",
-                        day.isPrevMonth || day.isNextMonth
-                          ? "text-gray-300 font-normal cursor-not-allowed" 
-                          : "text-gray-600 font-medium hover:bg-gray-50 cursor-pointer",
-                        isSelected && !day.isPrevMonth && !day.isNextMonth && "bg-gray-100 text-gray-900 border-gray-200 scale-[1.02]"
+                        "h-8 rounded-md p-0.5 flex flex-col justify-between cursor-pointer transition-all border text-center relative",
+                        isSelected 
+                          ? "ring-2 ring-blue-500 border-blue-500 bg-blue-50/50 shadow-2xs z-10" 
+                          : day.hasCard 
+                            ? "bg-emerald-50/40 border-emerald-200 hover:bg-emerald-50" 
+                            : "bg-gray-50/50 border-gray-100 hover:bg-gray-100/60"
                       )}
                     >
-                      <span className="leading-none">{day.dayNum}</span>
-                      {selectedDayObj?.dayNum === day.dayNum && !day.isPrevMonth && !day.isNextMonth && (
-                        <span className="absolute bottom-0.5 w-1 h-1 rounded-full bg-gray-500"></span>
+                      <span className={cn(
+                        "text-[9px] font-mono leading-none block",
+                        isSelected ? "font-black text-blue-700" : day.hasCard ? "font-bold text-emerald-800" : "text-gray-500"
+                      )}>
+                        {day.dayNum}
+                      </span>
+                      {day.hasCard ? (
+                        <span className="text-[7px] font-mono font-black text-emerald-600 truncate leading-none">
+                          ¥3.1w
+                        </span>
+                      ) : (
+                        <span className="text-[7px] text-gray-300 font-mono">-</span>
                       )}
                     </div>
                   );
                 })}
               </div>
 
-              {/* Ledger / Retract details action section inside calendar card */}
-              <div className="mt-3 pt-2.5 border-t border-gray-100 bg-gray-50/50 p-2.5 rounded-lg border border-gray-100">
+              {/* Selected Day Info Card */}
+              <div className="bg-slate-50 border border-slate-100 rounded-lg p-2.5 space-y-1.5 text-[10px]">
                 {selectedDayObj && selectedDayObj.hasCard ? (
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-gray-600">
+                      <span className="font-bold text-slate-700">
                         🗓️ 06月{selectedDayObj.dayNum}日 记账单据：
                       </span>
-                      <span className="bg-emerald-50 border border-emerald-100 text-emerald-700 px-1.5 py-0.2 rounded text-[9px] font-bold flex items-center gap-0.5">
-                        <span className="w-1 h-1 rounded-full bg-emerald-500"></span>
+                      <span className="bg-emerald-50 border border-emerald-100 text-emerald-700 px-1 py-0.2 rounded text-[9px] font-bold">
                         已入账
                       </span>
                     </div>
-                    <div className="space-y-1 text-[10px] text-gray-500">
+                    <div className="space-y-0.5 text-[10px] text-slate-500">
                       <div className="flex justify-between">
-                        <span>当日前进产值:</span>
+                        <span>当日产值:</span>
                         <span className="font-mono font-bold text-emerald-600">¥{selectedDayObj.value} 元</span>
                       </div>
                       <div className="flex justify-between">
                         <span>核算班组:</span>
-                        <span className="font-bold text-gray-700">道路养护第一班组</span>
+                        <span className="font-bold text-slate-700">道路养护第一班组</span>
                       </div>
-                      <div className="flex flex-col pt-0.5 border-t border-gray-100/50">
-                        <span>关联收入合同:</span>
-                        <span className="font-bold text-gray-700 truncate w-full" title="沪杭甬高速公路2026年日常养护项目">
-                          沪杭甬高速公路2026年日常养护项目
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex justify-end gap-1.5 mt-2 pt-2 border-t border-gray-100/50">
-                      <button 
-                        type="button"
-                        onClick={() => {
-                          if (confirm(`确认撤回 2026-06-0${selectedDayObj.dayNum} 的申报产值吗？撤回后数据将退回至待记账台账。`)) {
-                            alert("撤报成功！该日产值已打回至计量待审核台账。");
-                          }
-                        }}
-                        className="border border-amber-300 hover:bg-amber-50 text-amber-700 text-[10px] font-bold px-2 py-1 rounded transition-colors cursor-pointer"
-                      >
-                        撤报
-                      </button>
-                      <button 
-                        type="button"
-                        onClick={() => {
-                          alert("正在调起记账页面...");
-                        }}
-                        className="bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold px-2.5 py-1 rounded transition-colors cursor-pointer shadow-3xs"
-                      >
-                        记账
-                      </button>
                     </div>
                   </div>
                 ) : (
-                  <div className="text-center py-2 text-gray-400 text-[10px] font-medium flex flex-col items-center justify-center gap-0.5">
-                    <span>💡 6月{selectedDayObj?.dayNum}日无产值申报。</span>
-                    <span className="text-[9px] text-gray-400">请选择 7、8、9、10 日查看记账详情</span>
+                  <div className="text-center py-1 text-slate-400 text-[10px]">
+                    💡 6月{selectedDayObj?.dayNum}日无产值申报
                   </div>
                 )}
               </div>
             </div>
           )}
 
-          {/* Section 2: 常用应用 & AI工具 Tabs */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex-1 flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-4 border-b border-gray-100 pb-2">
-              <div className="flex items-center gap-4">
+          {/* Block 3: 常用应用 & AI工具 Shortcuts Card */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-3 border-b border-gray-100 pb-2">
+              <div className="flex items-center gap-3">
                 <button
                   type="button"
                   onClick={() => setActiveAppTab('shortcuts')}
                   className={cn(
-                    "font-bold text-sm pb-1.5 border-b-2 transition-all flex items-center gap-1.5",
+                    "font-bold text-xs pb-1 border-b-2 transition-all flex items-center gap-1",
                     activeAppTab === 'shortcuts'
                       ? "border-blue-600 text-blue-600"
                       : "border-transparent text-gray-500 hover:text-gray-900"
                   )}
                 >
-                  <span className={cn("w-1.5 h-3.5 rounded-full inline-block", activeAppTab === 'shortcuts' ? "bg-blue-600" : "bg-gray-400")}></span>
+                  <span className={cn("w-1.5 h-3 rounded-full inline-block", activeAppTab === 'shortcuts' ? "bg-blue-600" : "bg-gray-400")}></span>
                   常用应用
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveAppTab('aiTools')}
                   className={cn(
-                    "font-bold text-sm pb-1.5 border-b-2 transition-all flex items-center gap-1.5",
+                    "font-bold text-xs pb-1 border-b-2 transition-all flex items-center gap-1",
                     activeAppTab === 'aiTools'
                       ? "border-blue-600 text-blue-600"
                       : "border-transparent text-gray-500 hover:text-gray-900"
                   )}
                 >
-                  <Sparkles size={14} className={cn("transition-colors", activeAppTab === 'aiTools' ? "text-blue-600 animate-pulse" : "text-gray-400")} />
+                  <Sparkles size={12} className={cn("transition-colors", activeAppTab === 'aiTools' ? "text-blue-600 animate-pulse" : "text-gray-400")} />
                   AI工具
                 </button>
               </div>
-              <MoreHorizontal size={16} className="text-gray-400 cursor-pointer" />
+              <MoreHorizontal size={14} className="text-gray-400 cursor-pointer" />
             </div>
             
             {activeAppTab === 'shortcuts' ? (
-              <div className="grid grid-cols-4 gap-y-5 gap-x-2">
+              <div className="grid grid-cols-4 gap-y-3 gap-x-1">
                 {GET_SHORTCUTS(orgLevel).map((shortcut, idx) => (
                   <div 
                     key={idx} 
                     onClick={() => navigate(shortcut.path)}
-                    className="flex flex-col items-center justify-center p-1.5 hover:bg-gray-50 rounded-lg cursor-pointer transition-all duration-200 group text-center"
-                    style={{ minHeight: '80px' }}
+                    className="flex flex-col items-center justify-center p-1 hover:bg-gray-50 rounded-lg cursor-pointer transition-all duration-200 group text-center"
+                    style={{ minHeight: '68px' }}
                   >
-                    <div className="relative mb-2 p-2.5 bg-gray-50 rounded-xl group-hover:bg-white group-hover:shadow-md transition-all border border-gray-100 group-hover:border-blue-100">
+                    <div className="relative mb-1 p-2 bg-gray-50 rounded-xl group-hover:bg-white group-hover:shadow-md transition-all border border-gray-100 group-hover:border-blue-100">
                       {shortcut.icon}
                       {shortcut.badge && (
-                        <span className="absolute -top-1 -right-1.5 w-4 h-4 bg-red-500 text-white font-mono text-[9px] font-bold rounded-full flex items-center justify-center ring-2 ring-white">
+                        <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 text-white font-mono text-[8px] font-bold rounded-full flex items-center justify-center ring-1 ring-white">
                           {shortcut.badge}
                         </span>
                       )}
                     </div>
-                    <span className="text-[11px] text-gray-700 font-medium group-hover:text-blue-600 leading-tight block truncate w-full px-1">
+                    <span className="text-[10px] text-gray-700 font-medium group-hover:text-blue-600 leading-tight block truncate w-full px-0.5">
                       {shortcut.name}
                     </span>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="space-y-3 py-1">
+              <div className="space-y-2 py-0.5">
                 {[
-                  { name: '养护排班助手', icon: <Calendar size={20} className="text-blue-600" />, desc: 'AI一键智能高效排班与调休建议', label: '智能分析' },
-                  { name: '养护知识库', icon: <Compass size={20} className="text-emerald-600" />, desc: '快速查阅路段养护工艺及作业规范', label: '知识检索' },
-                  { name: '养护调度AI', icon: <Sparkles size={20} className="text-purple-600" />, desc: '根据恶劣气象和突发事件智能调度', label: '突发预案' }
+                  { name: '养护排班助手', icon: <Calendar size={18} className="text-blue-600" />, desc: 'AI一键智能排班', label: '智能分析' },
+                  { name: '养护知识库', icon: <Compass size={18} className="text-emerald-600" />, desc: '快速查阅路段规范', label: '知识检索' },
+                  { name: '养护调度AI', icon: <Sparkles size={18} className="text-purple-600" />, desc: '突发事件智能调度', label: '突发预案' }
                 ].map((tool, idx) => (
                   <div
                     key={idx}
                     onClick={() => handleAiToolClick(tool.name)}
-                    className="flex items-center justify-between p-3 rounded-xl border border-blue-50/50 bg-gradient-to-r from-blue-50/40 to-white hover:from-blue-50 hover:to-blue-50/20 hover:border-blue-200 cursor-pointer transition-all duration-200 group relative overflow-hidden"
+                    className="flex items-center justify-between p-2 rounded-lg border border-blue-50/50 bg-gradient-to-r from-blue-50/40 to-white hover:from-blue-50 hover:to-blue-50/20 cursor-pointer transition-all duration-200 group"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="p-2.5 bg-white rounded-xl shadow-sm border border-blue-100 group-hover:scale-105 transition-transform duration-200">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 bg-white rounded-lg shadow-2xs border border-blue-100 group-hover:scale-105 transition-transform">
                         {tool.icon}
                       </div>
                       <div className="space-y-0.5">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{tool.name}</span>
-                          <span className="text-[9px] bg-blue-100/60 text-blue-700 font-bold px-1.5 py-0.2 rounded">
-                            {tool.label}
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-gray-400 font-medium group-hover:text-gray-500 transition-colors leading-relaxed">{tool.desc}</p>
+                        <span className="text-xs font-bold text-gray-900 group-hover:text-blue-600">{tool.name}</span>
+                        <p className="text-[9px] text-gray-400 font-medium">{tool.desc}</p>
                       </div>
                     </div>
-                    <ChevronRight size={14} className="text-blue-400 group-hover:text-blue-600 translate-x-0 group-hover:translate-x-1 transition-transform" />
+                    <ChevronRight size={12} className="text-blue-400 group-hover:text-blue-600" />
                   </div>
                 ))}
               </div>
@@ -896,566 +826,471 @@ export default function Workbench() {
 
         </div>
 
-        {/* ================= RIGHT COLUMN ================= */}
-        <div className="lg:col-span-8 space-y-5">
+        {/* ================= MIDDLE COLUMN (5.0 / 10 = col-span-6) ================= */}
+        <div className="xl:col-span-6 flex flex-col gap-5 w-full">
           
-          {/* Section 1: Carousel Slider Banner */}
-          <div className="relative rounded-2xl overflow-hidden h-[190px] shadow-sm select-none group">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={currentSlide}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.5 }}
-                className="absolute inset-0 w-full h-full text-white flex flex-col justify-end p-6"
-                style={{
-                  background: `linear-gradient(rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.6) 100%), url(${BANNERS[currentSlide].image}) center/cover no-repeat`
-                }}
-              >
-                {/* Content Overlay */}
-                <div className="max-w-lg space-y-2">
-                  <span className="bg-blue-600/90 text-white font-semibold text-[10px] px-2.5 py-0.5 rounded-full uppercase tracking-wider backdrop-blur-sm self-start inline-block">
-                    {BANNERS[currentSlide].tagline}
-                  </span>
-                  <h2 className="text-2xl font-black tracking-tight text-white drop-shadow-sm leading-tight">
-                    {BANNERS[currentSlide].title}
-                  </h2>
-                  <p className="text-sm text-gray-200/90 font-medium tracking-wide drop-shadow-sm">
-                    {BANNERS[currentSlide].subtitle}
-                  </p>
-                </div>
-              </motion.div>
-            </AnimatePresence>
-
-            {/* Slider Dots */}
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
-              {BANNERS.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => setCurrentSlide(index)}
-                  className={cn(
-                    "h-1.5 rounded-full transition-all duration-300",
-                    currentSlide === index ? "w-6 bg-white" : "w-1.5 bg-white/40 hover:bg-white/70"
-                  )}
-                />
-              ))}
+          {/* Block 1: 项目过程管控 Card */}
+          <div className="bg-white rounded-xl border border-blue-200/90 shadow-sm p-4 flex flex-col justify-between">
+            {/* Header Title Row */}
+            <div className="flex items-center justify-between pb-2 mb-3 border-b border-blue-50/80">
+              <div className="flex items-baseline gap-2">
+                <h2 className="text-base font-black text-slate-900 tracking-tight">
+                  项目过程管控
+                </h2>
+                <span className="text-xs text-slate-400 font-medium">
+                  数据截止: 2026-06-22
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-100/80">
+                  实时监测
+                </span>
+              </div>
             </div>
 
-            {/* Arrows */}
-            <button 
-              onClick={() => setCurrentSlide(prev => (prev - 1 + BANNERS.length) % BANNERS.length)}
-              className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/20 hover:bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm"
-            >
-              <ChevronLeft size={18} />
-            </button>
-            <button 
-              onClick={() => setCurrentSlide(prev => (prev + 1) % BANNERS.length)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/20 hover:bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm"
-            >
-              <ChevronRight size={18} />
-            </button>
-          </div>
-
-          {orgLevel === '项目部' ? (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+            {/* 6 Process Control Metric Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2">
               
-              {/* Left Sub-column (col-span-7) for Todo list and Notice Board */}
-              <div className="lg:col-span-7 flex flex-col gap-5 h-full">
-                
-                {/* Section 2: 待办事项 (Shrunk) */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex-1 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between mb-3 border-b border-gray-100 pb-2.5">
-                      <h3 className="font-bold text-gray-950 flex items-center gap-1.5 text-xs">
-                        <span className="w-1.5 h-3.5 bg-blue-600 rounded-full"></span>
-                        待办事项
-                      </h3>
-                      <span className="text-[11px] text-blue-600 hover:underline cursor-pointer font-bold flex items-center">
-                        更多 <ChevronRight size={12} />
-                      </span>
-                    </div>
-
-                    {/* Category tabs */}
-                    <div className="flex gap-1 pb-2 border-b border-gray-100/60 mb-3 overflow-x-auto scrollbar-none">
-                      {['全部', `待办 · ${todos.length}`, '预警 · 0'].map((tab, idx) => {
-                        const pureName = tab.split(' · ')[0];
-                        return (
-                          <button
-                            key={idx}
-                            onClick={() => setActiveTodoTab(pureName)}
-                            className={cn(
-                              "px-2.5 py-0.5 rounded-full text-[10px] transition-all font-bold whitespace-nowrap",
-                              activeTodoTab === pureName 
-                                ? "bg-blue-50 text-blue-600" 
-                                : "text-gray-500 hover:text-blue-500 hover:bg-gray-50"
-                            )}
-                          >
-                            {tab}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Rows list */}
-                  <div className="space-y-2 flex-1 overflow-y-auto pr-1 scrollbar-thin min-h-[160px]">
-                    <AnimatePresence mode="popLayout">
-                      {todos.map((todo) => (
-                        <motion.div
-                          key={todo.id}
-                          layout
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, x: -100 }}
-                          transition={{ type: 'spring', stiffness: 500, damping: 40 }}
-                          className="flex items-center justify-between p-2 rounded-lg border border-gray-100 hover:border-blue-100 bg-white/50 hover:bg-blue-50/10 transition-all gap-2"
-                        >
-                          <div className="flex items-center gap-2 min-w-0 flex-1">
-                            <span className={cn(
-                              "text-[9px] px-1.5 py-0.2 rounded font-black shrink-0",
-                              todo.category === '办件' 
-                                ? "bg-orange-50 text-orange-600 border border-orange-100" 
-                                : "bg-blue-50 text-blue-600 border border-blue-150"
-                            )}>
-                              {todo.category}
-                            </span>
-                            <div className="text-[11px] text-gray-700 font-bold truncate flex-1 leading-tight">
-                              <span className="text-slate-400">[{todo.type}]</span>
-                              <span className="text-gray-900 ml-1 font-extrabold">{todo.sender}</span>
-                              <span className="text-gray-800 ml-1 font-semibold">{todo.title || todo.action}</span>
-                            </div>
-                          </div>
-                          <button 
-                            onClick={() => handleResolveTodo(todo.id)}
-                            className="px-2 py-1 rounded border border-blue-200 bg-white text-blue-600 font-extrabold text-[10px] hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all shadow-3xs shrink-0 flex items-center gap-0.5"
-                          >
-                            <CheckCircle size={10} />
-                            已办
-                          </button>
-                        </motion.div>
-                      ))}
-                    </AnimatePresence>
-                    {todos.length === 0 && (
-                      <div className="py-8 text-center text-gray-400 flex flex-col items-center justify-center space-y-1">
-                        <span className="text-2xl">🎉</span>
-                        <span className="font-bold text-[11px] text-gray-500">全部待办处理完毕！</span>
-                      </div>
-                    )}
+              {/* 1. 开累形象收入 */}
+              <div className="bg-[#f2f6ff] hover:bg-[#ebf2ff] transition-all rounded-xl p-2.5 flex flex-col items-center justify-between text-center border border-blue-100/50 group">
+                <div className="w-9 h-9 rounded-2xl bg-gradient-to-b from-sky-300 via-blue-500 to-blue-600 p-0.5 shadow-md shadow-blue-500/20 relative group-hover:scale-105 transition-transform">
+                  <div className="w-full h-full rounded-[14px] bg-gradient-to-b from-white/40 via-white/10 to-transparent flex items-center justify-center relative overflow-hidden">
+                    <TrendingUp className="w-4 h-4 text-white relative z-10" />
                   </div>
                 </div>
-
-                {/* Section 3: 新闻公告 (Shrunk) */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex-1 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between mb-3 border-b border-gray-100 pb-2.5">
-                      <h3 className="font-bold text-gray-900 flex items-center gap-1.5 text-xs">
-                        <span className="w-1.5 h-3.5 bg-blue-600 rounded-full"></span>
-                        公告栏
-                      </h3>
-                      <span className="text-[11px] text-blue-600 hover:underline cursor-pointer font-bold flex items-center">
-                        更多 <ChevronRight size={12} />
-                      </span>
-                    </div>
-
-                    {/* News navigation tabs */}
-                    <div className="flex border-b border-gray-150 mb-2.5 overflow-x-auto scrollbar-none pb-0.5">
-                      {NEWS_TABS.map((tab) => (
-                        <button
-                          key={tab}
-                          onClick={() => setActiveNewsTab(tab)}
-                          className={cn(
-                            "px-2 py-1 text-[11px] font-bold relative whitespace-nowrap transition-colors",
-                            activeNewsTab === tab 
-                              ? "text-blue-600 font-black" 
-                              : "text-gray-500 hover:text-blue-500"
-                          )}
-                        >
-                          {tab}
-                          {activeNewsTab === tab && (
-                            <motion.div 
-                              layoutId="activeNewsLine"
-                              className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" 
-                            />
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* News articles list */}
-                  <div className="space-y-2 flex-1 overflow-y-auto scrollbar-thin min-h-[120px]">
-                    {NEWS_DATA[activeNewsTab]?.map((item, idx) => (
-                      <div 
-                        key={idx}
-                        className="flex items-center justify-between p-2 rounded-md hover:bg-gray-50 text-[11px] text-gray-700 transition-all border border-transparent hover:border-gray-100 cursor-pointer group"
-                      >
-                        <div className="flex items-center gap-2 min-w-0 pr-2 flex-1">
-                          <span className="w-1.5 h-1.5 bg-blue-400 rounded-full group-hover:bg-blue-600 shrink-0"></span>
-                          <span className="font-bold text-gray-800 line-clamp-1 group-hover:text-blue-700 flex-1">
-                            {item.title}
-                          </span>
-                        </div>
-                        <span className="font-mono text-gray-400 shrink-0 group-hover:text-gray-600 font-medium scale-90">
-                          {item.date}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                <span className="text-[11px] font-bold text-slate-700 mt-1.5 mb-0.5">开累形象收入</span>
+                <div className="text-lg font-black text-slate-900 font-mono tracking-tight my-0.5">
+                  8.42 <span className="text-[10px] font-normal text-slate-600 font-sans">亿</span>
                 </div>
-
+                <span className="text-[10px] text-slate-500 font-medium whitespace-nowrap">
+                  当年开累: <strong className="text-slate-900 font-bold">3.20</strong> 亿
+                </span>
               </div>
 
-              {/* Right Sub-column (col-span-5) for new widgets */}
-              <div className="lg:col-span-5 space-y-5">
-                
-                {/* 1. 天气订阅 Widget */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-3">
-                  <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-1 h-3.5 bg-sky-500 rounded-full"></span>
-                      <span className="font-black text-xs text-gray-800 tracking-tight">智能天气环境订阅</span>
-                    </div>
-                    {/* Tiny Segment Selector */}
-                    <select 
-                      value={weatherSegment} 
-                      onChange={(e) => setWeatherSegment(e.target.value as any)}
-                      className="text-[10px] bg-slate-50 border border-slate-200 text-slate-700 rounded px-1.5 py-0.5 font-bold focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    >
-                      <option value="杭徽高速段">杭徽高速段</option>
-                      <option value="沪杭甬临平段">沪杭甬临平段</option>
-                      <option value="杭州绕城北段">杭州绕城北段</option>
-                    </select>
-                  </div>
-
-                  {/* Weather details */}
-                  <div className="space-y-3">
-                    
-                    {/* Today's Weather Header */}
-                    <div className="flex items-center justify-between bg-gradient-to-r from-sky-50/50 to-blue-50/30 rounded-lg p-2.5 border border-sky-100/50">
-                      <div className="flex items-center gap-2.5">
-                        <div className="p-1.5 bg-white rounded-md shadow-3xs border border-sky-100">
-                          {renderWeatherIcon(WEATHER_DATA[weatherSegment].forecast[0].icon, 24)}
-                        </div>
-                        <div className="flex flex-col">
-                          <div className="flex items-center gap-1">
-                            <span className="text-lg font-black text-slate-800 font-mono leading-none">
-                              {WEATHER_DATA[weatherSegment].today.temp}
-                            </span>
-                            <span className="text-[10px] font-black text-red-600 bg-red-50 border border-red-100 rounded px-1 py-0.2 scale-90">
-                              {WEATHER_DATA[weatherSegment].today.status}
-                            </span>
-                          </div>
-                          <span className="text-[10px] text-slate-400 font-bold mt-0.5">
-                            范围: {WEATHER_DATA[weatherSegment].today.range}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="text-right flex flex-col text-[10px] text-slate-500 font-bold">
-                        <span>{WEATHER_DATA[weatherSegment].today.wind}</span>
-                        <span className="text-slate-400 mt-0.5">湿度: {WEATHER_DATA[weatherSegment].today.humidity}</span>
-                      </div>
-                    </div>
-
-                    {/* Severe Weather Alert (If available) */}
-                    {WEATHER_DATA[weatherSegment].today.alert && (
-                      <div className="bg-red-50/70 border border-red-150 p-2 rounded-lg animate-pulse">
-                        <div className="flex items-start gap-1.5">
-                          <span className="text-xs shrink-0 mt-0.5">🚨</span>
-                          <p className="text-[10px] text-red-700 font-bold leading-normal">
-                            {WEATHER_DATA[weatherSegment].today.alert}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Forecast Grid (Next Days) */}
-                    <div className="grid grid-cols-5 gap-1 pt-1">
-                      {WEATHER_DATA[weatherSegment].forecast.map((fc, i) => (
-                        <div 
-                          key={i} 
-                          className={cn(
-                            "flex flex-col items-center justify-center p-1.5 rounded-lg border text-center transition-all",
-                            fc.severe 
-                              ? "bg-red-50/40 border-red-150 ring-1 ring-red-100" 
-                              : "bg-slate-50/30 border-slate-100 hover:bg-slate-50"
-                          )}
-                        >
-                          <span className="text-[10px] font-bold text-slate-500">{fc.day}</span>
-                          <div className="my-1.5">
-                            {renderWeatherIcon(fc.icon, 16)}
-                          </div>
-                          <span className={cn(
-                            "text-[9px] font-black leading-none truncate w-full",
-                            fc.severe ? "text-red-600" : "text-slate-600"
-                          )}>
-                            {fc.status}
-                          </span>
-                          <span className="text-[8px] font-bold text-slate-400 mt-1 font-mono leading-none">
-                            {fc.temp}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-
+              {/* 2. 开累实际成本 */}
+              <div className="bg-[#f2f6ff] hover:bg-[#ebf2ff] transition-all rounded-xl p-2.5 flex flex-col items-center justify-between text-center border border-blue-100/50 group">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-b from-sky-200 via-blue-400 to-blue-600 p-0.5 shadow-md shadow-blue-400/20 relative group-hover:scale-105 transition-transform">
+                  <div className="w-full h-full rounded-full bg-gradient-to-b from-white/50 via-white/10 to-transparent flex items-center justify-center relative overflow-hidden">
+                    <span className="relative z-10 text-white font-black text-xs">¥</span>
                   </div>
                 </div>
+                <span className="text-[11px] font-bold text-slate-700 mt-1.5 mb-0.5">开累实际成本</span>
+                <div className="text-lg font-black text-slate-900 font-mono tracking-tight my-0.5">
+                  7.67 <span className="text-[10px] font-normal text-slate-600 font-sans">亿</span>
+                </div>
+                <span className="text-[10px] text-slate-500 font-medium whitespace-nowrap">
+                  当年开累: <strong className="text-slate-900 font-bold">2.80</strong> 亿
+                </span>
+              </div>
 
-                {/* 2. 项目部计量情况 Widget */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-3">
-                  <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-1 h-3.5 bg-emerald-500 rounded-full"></span>
-                      <span className="font-black text-xs text-gray-800 tracking-tight">项目部年度计量执行</span>
-                    </div>
-                    <span className="text-[9px] bg-emerald-50 border border-emerald-100 text-emerald-700 px-1.5 py-0.2 rounded font-black font-mono">
-                      完成率: {MEASUREMENT_DATA.completionRate}%
+              {/* 3. 开累计量 */}
+              <div className="bg-[#f2f6ff] hover:bg-[#ebf2ff] transition-all rounded-xl p-2.5 flex flex-col items-center justify-between text-center border border-blue-100/50 group">
+                <div className="w-9 h-9 rounded-2xl bg-gradient-to-b from-sky-300 via-blue-500 to-blue-600 p-0.5 shadow-md shadow-blue-500/20 relative group-hover:scale-105 transition-transform">
+                  <div className="w-full h-full rounded-[14px] bg-gradient-to-b from-white/40 via-white/10 to-transparent flex items-center justify-center relative overflow-hidden">
+                    <Ruler className="w-4 h-4 text-white relative z-10" />
+                  </div>
+                </div>
+                <span className="text-[11px] font-bold text-slate-700 mt-1.5 mb-0.5">开累计量</span>
+                <div className="text-lg font-black text-slate-900 font-mono tracking-tight my-0.5">
+                  7.50 <span className="text-[10px] font-normal text-slate-600 font-sans">亿</span>
+                </div>
+                <span className="text-[10px] text-slate-500 font-medium whitespace-nowrap">
+                  当年开累: <strong className="text-slate-900 font-bold">2.50</strong> 亿
+                </span>
+              </div>
+
+              {/* 4. 开累支付 */}
+              <div className="bg-[#f2f6ff] hover:bg-[#ebf2ff] transition-all rounded-xl p-2.5 flex flex-col items-center justify-between text-center border border-blue-100/50 group">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-b from-sky-300 via-blue-500 to-blue-600 p-0.5 shadow-md shadow-blue-500/20 relative group-hover:scale-105 transition-transform">
+                  <div className="w-full h-full rounded-full bg-gradient-to-b from-white/50 via-white/10 to-transparent flex items-center justify-center relative overflow-hidden">
+                    <span className="relative z-10 text-white font-black text-xs flex items-center">
+                      ¥<span className="text-[8px] font-bold">&gt;</span>
                     </span>
                   </div>
+                </div>
+                <span className="text-[11px] font-bold text-slate-700 mt-1.5 mb-0.5">开累支付</span>
+                <div className="text-lg font-black text-slate-900 font-mono tracking-tight my-0.5">
+                  7.67 <span className="text-[10px] font-normal text-slate-600 font-sans">亿</span>
+                </div>
+                <span className="text-[10px] text-slate-500 font-medium whitespace-nowrap">
+                  当年开累: <strong className="text-slate-900 font-bold">2.80</strong> 亿
+                </span>
+              </div>
 
-                  {/* Progress Meter bar */}
-                  <div className="space-y-3">
-                    <div className="space-y-1.5">
-                      <div className="flex justify-between text-[11px] font-bold">
-                        <span className="text-slate-500">年度累计已确立计量金额</span>
-                        <span className="font-mono text-emerald-600">¥{MEASUREMENT_DATA.accumulated} 万 <span className="text-slate-300 font-normal">/ {MEASUREMENT_DATA.annualPlan}万</span></span>
-                      </div>
-                      <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden relative border border-slate-200/50">
-                        <div 
-                          className="h-full bg-gradient-to-r from-emerald-500 to-teal-600 rounded-full transition-all duration-1000" 
-                          style={{ width: `${MEASUREMENT_DATA.completionRate}%` }}
-                        ></div>
-                      </div>
-                    </div>
-
-                    {/* Breakdown grids */}
-                    <div className="grid grid-cols-2 gap-2 pt-1 text-center">
-                      <div className="bg-slate-50 border border-slate-100 rounded-lg p-2 flex flex-col justify-center">
-                        <span className="text-[9px] text-slate-400 font-bold">📂 本期 (月) 申报</span>
-                        <span className="text-xs font-black text-slate-700 font-mono mt-0.5">¥{MEASUREMENT_DATA.currentPeriod} 万元</span>
-                      </div>
-                      <div className="bg-emerald-50/30 border border-emerald-100 rounded-lg p-2 flex flex-col justify-center">
-                        <span className="text-[9px] text-emerald-700 font-bold">✅ 本期已确认入账</span>
-                        <span className="text-xs font-black text-emerald-800 font-mono mt-0.5">¥{MEASUREMENT_DATA.approvedPeriod} 万元</span>
-                      </div>
-                    </div>
-
-                    <p className="text-[10px] text-slate-500 leading-normal bg-slate-50 p-2 rounded border border-slate-100">
-                      💡 <span className="font-bold text-slate-700">执行说明：</span>
-                      本年度总计划 5,200 万，目前整体进度健康。本期审核通过率 84.4%，剩余 70 万处于结算复核阶段。
-                    </p>
+              {/* 5. 计量形象比 */}
+              <div className="bg-[#f2f6ff] hover:bg-[#ebf2ff] transition-all rounded-xl p-2.5 flex flex-col items-center justify-between text-center border border-blue-100/50 group">
+                <div className="w-9 h-9 rounded-2xl bg-gradient-to-b from-sky-300 via-blue-500 to-blue-600 p-0.5 shadow-md shadow-blue-500/20 relative group-hover:scale-105 transition-transform">
+                  <div className="w-full h-full rounded-[14px] bg-gradient-to-b from-white/40 via-white/10 to-transparent flex items-center justify-center relative overflow-hidden">
+                    <ShieldCheck className="w-4 h-4 text-white relative z-10" />
                   </div>
                 </div>
+                <span className="text-[11px] font-bold text-slate-700 mt-1.5 mb-0.5">计量形象比</span>
+                <div className="text-lg font-black text-slate-900 font-mono tracking-tight my-0.5">
+                  96.8%
+                </div>
+                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-[#f0f9f1] text-[#2e7d32] border border-[#b7ebc6] inline-block">
+                  无预警
+                </span>
+              </div>
 
-                {/* 3. 成本数据展示 Widget */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-3">
-                  <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-1.5 h-3.5 bg-violet-600 rounded-full"></span>
-                      <span className="font-black text-xs text-gray-800 tracking-tight">年度工料机及其他成本</span>
-                    </div>
-                    <span className="text-[10px] text-slate-400 font-bold">预算控制内</span>
-                  </div>
-
-                  {/* Stacked Percentage bar */}
-                  <div className="space-y-3">
-                    <div className="flex flex-col">
-                      <div className="flex justify-between items-baseline text-[11px] font-bold mb-1">
-                        <span className="text-slate-500">累计实际成本支出</span>
-                        <span className="font-mono text-slate-700 text-xs">
-                          ¥{COST_DATA.actual} 万元 <span className="text-slate-400 text-[10px] font-normal">/ 预算 {COST_DATA.budget}万</span>
-                        </span>
-                      </div>
-                      
-                      {/* Stacked segment bar */}
-                      <div className="h-3 rounded-full overflow-hidden flex border border-slate-100">
-                        {COST_DATA.items.map((item, idx) => (
-                          <div 
-                            key={idx} 
-                            style={{ width: `${item.percentage}%` }}
-                            className={cn("h-full transition-all", item.color)}
-                            title={`${item.name}: ${item.percentage}%`}
-                          />
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Split list with tooltips */}
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-2.5 pt-1">
-                      {COST_DATA.items.map((item, idx) => (
-                        <div key={idx} className="flex flex-col group relative">
-                          <div className="flex items-center gap-1.5">
-                            <span className={cn("w-2 h-2 rounded-sm shrink-0", item.color)}></span>
-                            <span className="text-[10px] font-bold text-slate-500 truncate" title={item.name}>{item.name}</span>
-                          </div>
-                          <span className="text-xs font-black text-slate-700 font-mono mt-0.5 ml-3.5">
-                            ¥{item.value} 万 <span className="text-slate-400 text-[9px] font-bold">({item.percentage}%)</span>
-                          </span>
-                          {/* hover info tooltip */}
-                          <div className="opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 absolute bottom-full left-0 bg-slate-800 text-white text-[9px] p-1.5 rounded shadow-lg z-20 max-w-[140px] mb-1">
-                            {item.text}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
+              {/* 6. 支付计量比 */}
+              <div className="bg-[#f2f6ff] hover:bg-[#ebf2ff] transition-all rounded-xl p-2.5 flex flex-col items-center justify-between text-center border border-blue-100/50 group">
+                <div className="w-9 h-9 rounded-2xl bg-gradient-to-b from-sky-300 via-blue-500 to-blue-600 p-0.5 shadow-md shadow-blue-500/20 relative group-hover:scale-105 transition-transform">
+                  <div className="w-full h-full rounded-[14px] bg-gradient-to-b from-white/40 via-white/10 to-transparent flex items-center justify-center relative overflow-hidden">
+                    <BarChart3 className="w-4 h-4 text-white relative z-10" />
                   </div>
                 </div>
-
+                <span className="text-[11px] font-bold text-slate-700 mt-1.5 mb-0.5">支付计量比</span>
+                <div className="text-lg font-black text-slate-900 font-mono tracking-tight my-0.5">
+                  84.9%
+                </div>
+                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-[#fff8e1] text-[#d97706] border border-[#ffe082] inline-block">
+                  II 级预警
+                </span>
               </div>
 
             </div>
-          ) : (
-            <>
-              {/* Section 2: 待办事项 */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-                <div className="flex items-center justify-between mb-4 border-b border-gray-100 pb-3">
-                  <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                    <span className="w-1.5 h-4 bg-blue-600 rounded-full"></span>
-                    待办事项
-                  </h3>
-                  <span className="text-xs text-blue-600 hover:underline cursor-pointer font-medium flex items-center gap-0.5">
-                    更多 <ChevronRight size={14} />
-                  </span>
-                </div>
+          </div>
 
-                {/* Category tabs */}
-                <div className="flex gap-1.5 pb-3 border-b border-gray-100/60 mb-4 overflow-x-auto">
-                  {['全部', `待办 · ${todos.length}`, '预警 · 0', '交接待办 · 0', '交待待阅 · 0'].map((tab, idx) => {
-                    const pureName = tab.split(' · ')[0];
-                    return (
-                      <button
-                        key={idx}
-                        onClick={() => setActiveTodoTab(pureName)}
-                        className={cn(
-                          "px-3 py-1 rounded-full text-xs transition-all font-semibold",
-                          activeTodoTab === pureName 
-                            ? "bg-blue-50 text-blue-600 shadow-sm" 
-                            : "text-gray-500 hover:text-blue-500 hover:bg-gray-50"
-                        )}
-                      >
-                        {tab}
-                      </button>
-                    )
-                  })}
-                </div>
-
-                {/* Rows list */}
-                <div className="space-y-2.5 max-h-[360px] overflow-y-auto pr-1">
-                  <AnimatePresence mode="popLayout">
-                    {todos.map((todo) => (
-                      <motion.div
-                        key={todo.id}
-                        layout
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, x: -200 }}
-                        transition={{ type: 'spring', stiffness: 500, damping: 40 }}
-                        className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3.5 rounded-xl border border-gray-100 hover:border-blue-100 bg-white/50 hover:bg-blue-50/10 transition-all gap-3"
-                      >
-                        <div className="flex items-start gap-3 flex-1 min-w-0">
-                          {/* Badge categorization */}
-                          <span className={cn(
-                            "text-[10px] px-1.5 py-0.5 rounded-md font-extrabold uppercase shrink-0 mt-0.5",
-                            todo.category === '办件' 
-                              ? "bg-orange-50 text-orange-600 border border-orange-100" 
-                              : "bg-blue-50 text-blue-600 border border-blue-150"
-                          )}>
-                            {todo.category}
-                          </span>
-
-                          {/* Content details */}
-                          <div className="text-xs text-gray-700 font-medium leading-relaxed flex-1 truncate">
-                            <span className="text-gray-500 font-semibold">{`【${todo.type}】`}</span>
-                            <span className="text-gray-900 font-bold ml-1">{todo.sender}</span>
-                            <span className="text-gray-400 font-normal mx-1">{todo.action}</span>
-                            <span className="text-gray-800 hover:text-blue-600 cursor-pointer">{todo.title || todo.action}</span>
-                          </div>
-                        </div>
-
-                        {/* Actions button */}
-                        <button 
-                          onClick={() => handleResolveTodo(todo.id)}
-                          className="px-3.5 py-1.5 rounded-lg border border-blue-200 bg-white text-blue-600 font-bold text-xs hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all shadow-sm shrink-0 flex items-center gap-1"
-                        >
-                          <CheckCircle size={12} />
-                          设已办
-                        </button>
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-
-                  {todos.length === 0 && (
-                    <div className="p-12 text-center text-gray-400 flex flex-col items-center justify-center space-y-2">
-                      <span className="text-4xl">🎉</span>
-                      <span className="font-bold text-gray-500">所有的工作都已标记办结，轻松一下吧！</span>
-                    </div>
-                  )}
-                </div>
+          {/* Block 2: 待办事项 Card */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col justify-between min-h-[280px]">
+            <div>
+              <div className="flex items-center justify-between mb-3 border-b border-gray-100 pb-2.5">
+                <h3 className="font-bold text-gray-950 flex items-center gap-1.5 text-xs">
+                  <span className="w-1.5 h-3.5 bg-blue-600 rounded-full"></span>
+                  待办事项
+                </h3>
+                <span className="text-[11px] text-blue-600 hover:underline cursor-pointer font-bold flex items-center">
+                  更多 <ChevronRight size={12} />
+                </span>
               </div>
 
-              {/* Section 3: 新闻公告 */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-                <div className="flex items-center justify-between mb-4 border-b border-gray-100 pb-3">
-                  <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                    <span className="w-1.5 h-4 bg-blue-600 rounded-full"></span>
-                    新闻公告栏
-                  </h3>
-                  <span className="text-xs text-blue-600 hover:underline cursor-pointer font-medium flex items-center gap-0.5">
-                    更多 <ChevronRight size={14} />
-                  </span>
-                </div>
-
-                {/* News navigation tabs */}
-                <div className="flex border-b border-gray-150 mb-4 overflow-x-auto scrollbar-none pb-0.5">
-                  {NEWS_TABS.map((tab) => (
+              {/* Category tabs */}
+              <div className="flex gap-1 pb-2 border-b border-gray-100/60 mb-3 overflow-x-auto scrollbar-none">
+                {['全部', `待办 · ${todos.length}`, '预警 · 0', '交接待办 · 0', '交待待阅 · 0'].map((tab, idx) => {
+                  const pureName = tab.split(' · ')[0];
+                  return (
                     <button
-                      key={tab}
-                      onClick={() => setActiveNewsTab(tab)}
+                      key={idx}
+                      onClick={() => setActiveTodoTab(pureName)}
                       className={cn(
-                        "px-3 py-1.5 text-xs font-semibold relative whitespace-nowrap transition-colors",
-                        activeNewsTab === tab 
-                          ? "text-blue-600 font-bold" 
-                          : "text-gray-500 hover:text-blue-500"
+                        "px-2.5 py-0.5 rounded-full text-[10px] transition-all font-bold whitespace-nowrap",
+                        activeTodoTab === pureName 
+                          ? "bg-blue-50 text-blue-600" 
+                          : "text-gray-500 hover:text-blue-500 hover:bg-gray-50"
                       )}
                     >
                       {tab}
-                      {activeNewsTab === tab && (
-                        <motion.div 
-                          layoutId="activeNewsLine"
-                          className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" 
-                        />
-                      )}
                     </button>
-                  ))}
-                </div>
+                  )
+                })}
+              </div>
+            </div>
 
-                {/* News articles list */}
-                <div className="space-y-3">
-                  {NEWS_DATA[activeNewsTab]?.map((item, idx) => (
-                    <div 
-                      key={idx}
-                      className="flex items-center justify-between p-2.5 rounded-lg hover:bg-gray-50 hover:px-3 text-xs text-gray-700 transition-all border border-transparent hover:border-gray-100 cursor-pointer group"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0 pr-4">
-                        <span className="w-1.5 h-1.5 bg-blue-400 rounded-full group-hover:bg-blue-600 group-hover:scale-125 transition-all"></span>
-                        <span className="font-medium text-gray-800 line-clamp-1 group-hover:text-blue-700">
-                          {item.title}
-                        </span>
+            {/* Rows list */}
+            <div className="space-y-2 flex-1 overflow-y-auto pr-1 scrollbar-thin max-h-[220px]">
+              <AnimatePresence mode="popLayout">
+                {todos.map((todo) => (
+                  <motion.div
+                    key={todo.id}
+                    layout
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, x: -100 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 40 }}
+                    className="flex items-center justify-between p-2 rounded-lg border border-gray-100 hover:border-blue-100 bg-white/50 hover:bg-blue-50/10 transition-all gap-2"
+                  >
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className={cn(
+                        "text-[9px] px-1.5 py-0.2 rounded font-black shrink-0",
+                        todo.category === '办件' 
+                          ? "bg-orange-50 text-orange-600 border border-orange-100" 
+                          : "bg-blue-50 text-blue-600 border border-blue-150"
+                      )}>
+                        {todo.category}
+                      </span>
+                      <div className="text-[11px] text-gray-700 font-bold truncate flex-1 leading-tight">
+                        <span className="text-slate-400">[{todo.type}]</span>
+                        <span className="text-gray-900 ml-1 font-extrabold">{todo.sender}</span>
+                        <span className="text-gray-800 ml-1 font-semibold">{todo.title || todo.action}</span>
                       </div>
-                      <span className="font-mono text-gray-400 shrink-0 group-hover:text-gray-600">
-                        {item.date}
+                    </div>
+                    <button 
+                      onClick={() => handleResolveTodo(todo.id)}
+                      className="px-2 py-1 rounded border border-blue-200 bg-white text-blue-600 font-extrabold text-[10px] hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all shadow-3xs shrink-0 flex items-center gap-0.5 cursor-pointer"
+                    >
+                      <CheckCircle size={10} />
+                      已办
+                    </button>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+              {todos.length === 0 && (
+                <div className="py-8 text-center text-gray-400 flex flex-col items-center justify-center space-y-1">
+                  <span className="text-2xl">🎉</span>
+                  <span className="font-bold text-[11px] text-gray-500">全部待办处理完毕！</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Block 3: 公告栏 Card */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col justify-between min-h-[260px]">
+            <div>
+              <div className="flex items-center justify-between mb-3 border-b border-gray-100 pb-2.5">
+                <h3 className="font-bold text-gray-900 flex items-center gap-1.5 text-xs">
+                  <span className="w-1.5 h-3.5 bg-blue-600 rounded-full"></span>
+                  公告栏
+                </h3>
+                <span className="text-[11px] text-blue-600 hover:underline cursor-pointer font-bold flex items-center">
+                  更多 <ChevronRight size={12} />
+                </span>
+              </div>
+
+              {/* News navigation tabs */}
+              <div className="flex border-b border-gray-150 mb-2.5 overflow-x-auto scrollbar-none pb-0.5">
+                {NEWS_TABS.map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveNewsTab(tab)}
+                    className={cn(
+                      "px-2 py-1 text-[11px] font-bold relative whitespace-nowrap transition-colors cursor-pointer",
+                      activeNewsTab === tab 
+                        ? "text-blue-600 font-black" 
+                        : "text-gray-500 hover:text-blue-500"
+                    )}
+                  >
+                    {tab}
+                    {activeNewsTab === tab && (
+                      <motion.div 
+                        layoutId="activeNewsLine"
+                        className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" 
+                      />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* News articles list */}
+            <div className="space-y-2 flex-1 overflow-y-auto scrollbar-thin max-h-[180px]">
+              {NEWS_DATA[activeNewsTab]?.map((item, idx) => (
+                <div 
+                  key={idx}
+                  className="flex items-center justify-between p-2 rounded-md hover:bg-gray-50 text-[11px] text-gray-700 transition-all border border-transparent hover:border-gray-100 cursor-pointer group"
+                >
+                  <div className="flex items-center gap-2 min-w-0 pr-2 flex-1">
+                    <span className="w-1.5 h-1.5 bg-blue-400 rounded-full group-hover:bg-blue-600 shrink-0"></span>
+                    <span className="font-bold text-gray-800 line-clamp-1 group-hover:text-blue-700 flex-1">
+                      {item.title}
+                    </span>
+                  </div>
+                  <span className="font-mono text-gray-400 shrink-0 group-hover:text-gray-600 font-medium scale-90">
+                    {item.date}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
+
+        {/* ================= RIGHT COLUMN (2.5 / 10 = col-span-3) ================= */}
+        <div className="xl:col-span-3 flex flex-col gap-5 w-full">
+          
+          {/* Block 1: 智能天气环境订阅 Weather Card */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-3">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+              <div className="flex items-center gap-1.5">
+                <span className="w-1 h-3.5 bg-sky-500 rounded-full"></span>
+                <span className="font-black text-xs text-gray-800 tracking-tight">智能天气环境订阅</span>
+              </div>
+              <select 
+                value={weatherSegment} 
+                onChange={(e) => setWeatherSegment(e.target.value as any)}
+                className="text-[10px] bg-slate-50 border border-slate-200 text-slate-700 rounded px-1.5 py-0.5 font-bold focus:outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                <option value="杭徽高速段">杭徽高速段</option>
+                <option value="沪杭甬临平段">沪杭甬临平段</option>
+                <option value="杭州绕城北段">杭州绕城北段</option>
+              </select>
+            </div>
+
+            {/* Weather Details */}
+            <div className="space-y-2.5">
+              
+              {/* Today's Weather Header */}
+              <div className="flex items-center justify-between bg-gradient-to-r from-sky-50/60 to-blue-50/40 rounded-xl p-2.5 border border-sky-100/60">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-white rounded-lg shadow-2xs border border-sky-100">
+                    {renderWeatherIcon(WEATHER_DATA[weatherSegment].forecast[0].icon, 22)}
+                  </div>
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-1">
+                      <span className="text-lg font-black text-slate-800 font-mono leading-none">
+                        {WEATHER_DATA[weatherSegment].today.temp}
+                      </span>
+                      <span className="text-[9px] font-black text-red-600 bg-red-50 border border-red-100 rounded px-1 py-0.2">
+                        {WEATHER_DATA[weatherSegment].today.status}
                       </span>
                     </div>
+                    <span className="text-[9px] text-slate-400 font-bold mt-0.5">
+                      范围: {WEATHER_DATA[weatherSegment].today.range}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-right flex flex-col text-[9px] text-slate-500 font-bold">
+                  <span>{WEATHER_DATA[weatherSegment].today.wind}</span>
+                  <span className="text-slate-400 mt-0.5">湿度: {WEATHER_DATA[weatherSegment].today.humidity}</span>
+                </div>
+              </div>
+
+              {/* Severe Weather Alert (If available) */}
+              {WEATHER_DATA[weatherSegment].today.alert && (
+                <div className="bg-red-50/80 border border-red-150 p-2 rounded-lg animate-pulse">
+                  <div className="flex items-start gap-1.5">
+                    <span className="text-xs shrink-0 mt-0.5">🚨</span>
+                    <p className="text-[9px] text-red-700 font-bold leading-tight">
+                      {WEATHER_DATA[weatherSegment].today.alert}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Forecast Grid (5-day) */}
+              <div className="grid grid-cols-5 gap-1 pt-0.5">
+                {WEATHER_DATA[weatherSegment].forecast.map((fc, i) => (
+                  <div 
+                    key={i} 
+                    className={cn(
+                      "flex flex-col items-center justify-center p-1 rounded-lg border text-center transition-all",
+                      fc.severe 
+                        ? "bg-red-50/40 border-red-150 ring-1 ring-red-100" 
+                        : "bg-slate-50/40 border-slate-100 hover:bg-slate-50"
+                    )}
+                  >
+                    <span className="text-[9px] font-bold text-slate-500">{fc.day}</span>
+                    <div className="my-1">
+                      {renderWeatherIcon(fc.icon, 14)}
+                    </div>
+                    <span className={cn(
+                      "text-[8px] font-black leading-none truncate w-full",
+                      fc.severe ? "text-red-600" : "text-slate-600"
+                    )}>
+                      {fc.status}
+                    </span>
+                    <span className="text-[8px] font-bold text-slate-400 mt-1 font-mono leading-none">
+                      {fc.temp}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+            </div>
+          </div>
+
+          {/* Block 2: 项目部年度计量执行 Annual Measurement Execution Card */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-3">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+              <div className="flex items-center gap-1.5">
+                <span className="w-1 h-3.5 bg-emerald-500 rounded-full"></span>
+                <span className="font-black text-xs text-gray-800 tracking-tight">年度计量执行</span>
+              </div>
+              <span className="text-[9px] bg-emerald-50 border border-emerald-100 text-emerald-700 px-1.5 py-0.2 rounded font-black font-mono">
+                完成率: {MEASUREMENT_DATA.completionRate}%
+              </span>
+            </div>
+
+            {/* Progress Meter bar */}
+            <div className="space-y-2.5">
+              <div className="space-y-1">
+                <div className="flex justify-between text-[10px] font-bold">
+                  <span className="text-slate-500">年度已确立计量金额</span>
+                  <span className="font-mono text-emerald-600">¥{MEASUREMENT_DATA.accumulated}万 <span className="text-slate-300 font-normal">/ {MEASUREMENT_DATA.annualPlan}万</span></span>
+                </div>
+                <div className="h-2 bg-slate-100 rounded-full overflow-hidden relative border border-slate-200/50">
+                  <div 
+                    className="h-full bg-gradient-to-r from-emerald-500 to-teal-600 rounded-full transition-all duration-1000" 
+                    style={{ width: `${MEASUREMENT_DATA.completionRate}%` }}
+                  ></div>
+                </div>
+              </div>
+
+              {/* Breakdown grids */}
+              <div className="grid grid-cols-2 gap-2 text-center">
+                <div className="bg-slate-50 border border-slate-100 rounded-lg p-1.5 flex flex-col justify-center">
+                  <span className="text-[9px] text-slate-400 font-bold">📂 本期 (月) 申报</span>
+                  <span className="text-[11px] font-black text-slate-700 font-mono mt-0.5">¥{MEASUREMENT_DATA.currentPeriod} 万元</span>
+                </div>
+                <div className="bg-emerald-50/30 border border-emerald-100 rounded-lg p-1.5 flex flex-col justify-center">
+                  <span className="text-[9px] text-emerald-700 font-bold">✅ 本期已确认入账</span>
+                  <span className="text-[11px] font-black text-emerald-800 font-mono mt-0.5">¥{MEASUREMENT_DATA.approvedPeriod} 万元</span>
+                </div>
+              </div>
+
+              <p className="text-[9px] text-slate-500 leading-normal bg-slate-50 p-2 rounded border border-slate-100">
+                💡 <span className="font-bold text-slate-700">执行说明：</span>
+                本年度计划 5,200 万，进度健康。本期审核通过率 84.4%，剩余 70 万处于复核阶段。
+              </p>
+            </div>
+          </div>
+
+          {/* Block 3: 年度工料机及其他成本 Card */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-3">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+              <div className="flex items-center gap-1.5">
+                <span className="w-1.5 h-3.5 bg-violet-600 rounded-full"></span>
+                <span className="font-black text-xs text-gray-800 tracking-tight">年度工料机及其他成本</span>
+              </div>
+              <span className="text-[9px] text-slate-400 font-bold">预算控制内</span>
+            </div>
+
+            {/* Stacked Percentage bar */}
+            <div className="space-y-2.5">
+              <div className="flex flex-col">
+                <div className="flex justify-between items-baseline text-[10px] font-bold mb-1">
+                  <span className="text-slate-500">累计实际成本支出</span>
+                  <span className="font-mono text-slate-700 text-xs">
+                    ¥{COST_DATA.actual}万 <span className="text-slate-400 text-[9px] font-normal">/ 预算 {COST_DATA.budget}万</span>
+                  </span>
+                </div>
+                
+                {/* Stacked segment bar */}
+                <div className="h-2.5 rounded-full overflow-hidden flex border border-slate-100">
+                  {COST_DATA.items.map((item, idx) => (
+                    <div 
+                      key={idx} 
+                      style={{ width: `${item.percentage}%` }}
+                      className={cn("h-full transition-all", item.color)}
+                      title={`${item.name}: ${item.percentage}%`}
+                    />
                   ))}
                 </div>
               </div>
-            </>
-          )}
+
+              {/* Split list */}
+              <div className="grid grid-cols-2 gap-x-2 gap-y-2 pt-0.5">
+                {COST_DATA.items.map((item, idx) => (
+                  <div key={idx} className="flex flex-col group relative">
+                    <div className="flex items-center gap-1">
+                      <span className={cn("w-1.5 h-1.5 rounded-sm shrink-0", item.color)}></span>
+                      <span className="text-[9px] font-bold text-slate-500 truncate" title={item.name}>{item.name}</span>
+                    </div>
+                    <span className="text-[11px] font-black text-slate-700 font-mono mt-0.5 ml-2.5">
+                      ¥{item.value}万 <span className="text-slate-400 text-[8px] font-bold">({item.percentage}%)</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+            </div>
+          </div>
 
         </div>
 
       </div>
+
+
 
       {/* Section for Project Share as requested */}
       {orgLevel !== '项目部' && (
