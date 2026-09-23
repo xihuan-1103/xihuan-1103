@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
+import {
+  LayoutDashboard,
   FileText,
-  Settings, 
-  Users, 
-  ChevronDown, 
+  Settings,
+  Users,
+  ChevronDown,
   ChevronRight,
   Menu,
   Bell,
@@ -16,7 +16,14 @@ import {
   RotateCcw,
   Home,
   TrendingUp,
-  Layers
+  Settings2,
+  Boxes,
+  Warehouse,
+  ArrowLeftRight,
+  ClipboardCheck,
+  Wrench,
+  Calculator,
+  Flag,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -35,9 +42,15 @@ const MENU_DATA: MenuItem[] = [
     children: []
   },
   {
-    title: '工作中心',
-    path: '/workcenter',
-    icon: <Layers size={18} />,
+    title: '门户管理',
+    path: '/portal-admin',
+    icon: <Settings2 size={18} />,
+    children: []
+  },
+  {
+    title: '系统管理',
+    path: '/system-admin',
+    icon: <Settings size={18} />,
     children: []
   },
   {
@@ -77,6 +90,106 @@ const MENU_DATA: MenuItem[] = [
     ]
   },
   {
+    title: '材料管理',
+    path: '/material/issue',
+    icon: <Boxes size={18} />,
+    children: [
+      {
+        title: '材料业务',
+        path: '/material/issue',
+        children: [
+          { title: '领料单管理', path: '/material/issue' },
+          { title: '调拨单管理', path: '/material/transfer' },
+          { title: '库存转移（价拨）', path: '/material/valuation' },
+        ]
+      },
+      {
+        title: '入库管理',
+        path: '/material/stockin/purchase',
+        children: [
+          { title: '采购入库', path: '/material/stockin/purchase' },
+          { title: '退料入库', path: '/material/stockin/return' },
+          { title: '调拨入库', path: '/material/stockin/transfer' },
+          { title: '其他入库', path: '/material/stockin/other' },
+        ]
+      },
+      {
+        title: '出库管理',
+        path: '/material/stockout/return',
+        children: [
+          { title: '退货出库', path: '/material/stockout/return' },
+          { title: '领料出库', path: '/material/stockout/issue' },
+          { title: '调拨出库', path: '/material/stockout/transfer' },
+          { title: '其他出库', path: '/material/stockout/other' },
+        ]
+      },
+      {
+        title: '材料合同',
+        path: '/material/contract',
+        children: [
+          { title: '材料合同列表', path: '/material/contract' },
+        ]
+      },
+      {
+        title: '对账',
+        path: '/material/recon',
+        children: [
+          { title: '材料对账单', path: '/material/recon' },
+        ]
+      },
+      {
+        title: '库存查询',
+        path: '/material/balance',
+        children: [
+          { title: '库存余额', path: '/material/balance' },
+        ]
+      },
+      {
+        title: '基础数据',
+        path: '/material/master',
+        children: [
+          { title: '材料编码体系', path: '/material/master?tab=mat' },
+          { title: '仓库档案', path: '/material/master?tab=wh' },
+        ]
+      },
+    ]
+  },
+  {
+    title: '设备管理',
+    path: '/equipment/movement/own-in',
+    icon: <Wrench size={18} />,
+    children: [
+      {
+        title: '设备进出场',
+        path: '/equipment/movement/own-in',
+        children: [
+          { title: '自有设备进场', path: '/equipment/movement/own-in' },
+          { title: '租赁设备进场', path: '/equipment/movement/lease-in' },
+          { title: '自有设备退场', path: '/equipment/movement/own-out' },
+          { title: '租赁设备退场', path: '/equipment/movement/lease-out' },
+          { title: '设备台账', path: '/equipment/ledger' },
+        ]
+      },
+      {
+        title: '设备使用明细',
+        path: '/equipment/usage/shift',
+        children: [
+          { title: '设备使用台班', path: '/equipment/usage/shift' },
+          { title: '设备使用成本', path: '/equipment/usage/cost' },
+          { title: '车辆每日消耗', path: '/equipment/usage/vehicle-daily' },
+          { title: '车辆累计消耗（按年）', path: '/equipment/usage/vehicle-yearly' },
+        ]
+      },
+      {
+        title: '设备类型管理',
+        path: '/equipment/code',
+        children: [
+          { title: '设备编码体系', path: '/equipment/code' },
+        ]
+      },
+    ]
+  },
+  {
     title: '合同管理',
     path: '/contract',
     icon: <FileText size={18} />,
@@ -87,7 +200,16 @@ const MENU_DATA: MenuItem[] = [
         children: [
           { title: '合同确认池', path: '/contract/income/confirmation' },
           { title: '合同台账', path: '/contract/income/ledger' },
-          { title: '合同清单', path: '/contract/income/inventory' },
+        ]
+      },
+      {
+        title: '分包合同',
+        path: '/contract/subcontract/confirmation',
+        children: [
+          { title: '分包合同确认', path: '/contract/subcontract/confirmation' },
+          { title: '分包合同池', path: '/contract/subcontract/pool' },
+          { title: '分包清单', path: '/contract/subcontract/inventory' },
+          { title: '清单挂接', path: '/contract/subcontract/linking' },
         ]
       },
       {
@@ -120,6 +242,63 @@ const MENU_DATA: MenuItem[] = [
         ]
       }
     ]
+  },
+  {
+    title: '计量应收',
+    path: '/measure/pool',
+    icon: <Calculator size={18} />,
+    children: [
+      {
+        title: '计量业务',
+        path: '/measure/pool',
+        children: [
+          { title: '计量数据池', path: '/measure/pool' },
+          { title: '计量台账', path: '/measure/statement' },
+          { title: '批复管理', path: '/measure/approval' },
+          { title: '计量单管理', path: '/measure/order' },
+        ]
+      },
+      {
+        title: '应收管理',
+        path: '/measure/receivable',
+        children: [
+          { title: '应收单', path: '/measure/receivable' },
+          { title: '回款跟踪', path: '/measure/payment' },
+        ]
+      },
+    ]
+  },
+  {
+    title: '百日攻坚',
+    path: '/campaign/config',
+    icon: <Flag size={18} />,
+    children: [
+      {
+        title: '攻坚配置',
+        path: '/campaign/config',
+        children: [
+          { title: '基础信息配置', path: '/campaign/config' },
+          { title: '月度计划倒排', path: '/campaign/plan' },
+        ]
+      },
+      {
+        title: '产值晾晒',
+        path: '/campaign/daily',
+        children: [
+          { title: '每日产值填报', path: '/campaign/daily' },
+          { title: '项目部晾晒', path: '/campaign/rank' },
+          { title: '项目部每周晾晒', path: '/campaign/weekly' },
+        ]
+      },
+      {
+        title: '攻坚汇总',
+        path: '/campaign/summary',
+        children: [
+          { title: '百日攻坚总表', path: '/campaign/summary' },
+          { title: '数据看板', path: '/campaign/dashboard' },
+        ]
+      },
+    ]
   }
 ];
 
@@ -127,14 +306,21 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [activeTopMenu, setActiveTopMenu] = useState(MENU_DATA[0]);
-  const [expandedMenus, setExpandedMenus] = useState<string[]>(['项目管理', '基础信息设置', '班组管理', '合同管理', '养护施工', '产值管理']);
+  const [expandedMenus, setExpandedMenus] = useState<string[]>(['项目管理', '基础信息设置', '班组管理', '合同管理', '养护施工', '产值管理', '材料业务', '出入库管理', '基础数据', '计量业务', '应收管理', '攻坚配置', '产值晾晒', '攻坚汇总']);
+
+  // 去掉 query string 后的纯路径，用于菜单匹配
+  const pathnameOnly = location.pathname;
+  const matchPath = (p: string) => {
+    const base = p.split('?')[0];
+    return pathnameOnly === base || pathnameOnly.startsWith(base + '/');
+  };
 
   React.useEffect(() => {
     const matched = MENU_DATA.find(menu => {
-      if (location.pathname === menu.path) return true;
+      if (matchPath(menu.path)) return true;
       return menu.children?.some(c => {
-        if (location.pathname === c.path) return true;
-        return c.children?.some(cc => location.pathname === cc.path || location.pathname.startsWith(cc.path));
+        if (matchPath(c.path)) return true;
+        return c.children?.some(cc => matchPath(cc.path));
       });
     });
     if (matched) {
@@ -299,7 +485,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   {expandedMenus.includes(secondLevel.title) && secondLevel.children && (
                     <div className="mt-0.5 space-y-0.5">
                       {secondLevel.children.map((thirdLevel) => {
-                        const isCurrent = location.pathname === thirdLevel.path || location.pathname.startsWith(thirdLevel.path + '/');
+                        const isCurrent = matchPath(thirdLevel.path);
                         return (
                           <Link
                             key={thirdLevel.title}
@@ -335,14 +521,25 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <>
                   <span className="text-slate-300">/</span>
                   <span className="text-slate-800 font-bold">
-                    {activeTopMenu.children?.flatMap(c => c.children || [c]).find(c => c.path === location.pathname)?.title || '详情页'}
+                    {activeTopMenu.children?.flatMap(c => c.children || [c]).find(c => matchPath(c.path))?.title || '详情页'}
                   </span>
                 </>
               )}
             </div>
             
             <div className="flex items-center gap-4 text-xs text-slate-500 font-medium">
-              <span>单位: <strong className="text-slate-700 font-mono">万元 / 人民币</strong></span>
+              {location.pathname === '/workbench' ? (
+                <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent('cico-workbench-settings-open'))}
+                className="p-1.5 rounded-md hover:bg-slate-100 text-slate-500 hover:text-blue-600 transition-colors cursor-pointer"
+                title="工作台布局设置"
+              >
+                <Settings size={16} />
+              </button>
+              ) : (
+                <span>单位: <strong className="text-slate-700 font-mono">万元 / 人民币</strong></span>
+              )}
             </div>
           </div>
 

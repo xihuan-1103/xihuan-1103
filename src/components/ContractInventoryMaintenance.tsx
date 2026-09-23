@@ -24,11 +24,29 @@ import {
   Clock,
   History
 } from 'lucide-react';
-import { Contract } from '../types';
+import type { Contract } from '../types';
+
+/** 清单所属合同的最小结构（收入合同 / 分包合同均满足） */
+export interface InventoryContractLike {
+  id: string;
+  name: string;
+  code: string;
+  amount: number;
+  performanceStartDate?: string;
+  performanceEndDate?: string;
+}
 
 interface ContractInventoryMaintenanceProps {
-  contract: Contract;
+  contract: InventoryContractLike;
   onBack?: () => void;
+  /** localStorage 存储 key 前缀（分包清单复用时传 'SUB_CONTRACT_INVENTORIES_'） */
+  storagePrefix?: string;
+  /** 页面标题（默认「合同清单维护」，分包场景传「分包清单维护」） */
+  heading?: string;
+  /** 无历史数据时的初始播种清单（分包场景传入分包样式清单） */
+  seedInventories?: ContractInventory[];
+  /** 创建清单时可选的模拟上传文件（分包场景传入分包样式文件） */
+  sampleFiles?: typeof SAMPLE_EXCEL_FILES;
 }
 
 export interface ContractInventoryItem {
@@ -110,7 +128,12 @@ const SAMPLE_EXCEL_FILES = [
   }
 ];
 
-export default function ContractInventoryMaintenance({ contract, onBack }: ContractInventoryMaintenanceProps) {
+export default function ContractInventoryMaintenance({
+  contract, onBack, storagePrefix = 'CONTRACT_INVENTORIES_', heading,
+  seedInventories, sampleFiles,
+}: ContractInventoryMaintenanceProps) {
+  // 分包场景可传入自定义模拟上传文件，默认使用收入合同的样例文件
+  const SAMPLES = sampleFiles ?? SAMPLE_EXCEL_FILES;
   // 1. Core Inventories state
   const [inventories, setInventories] = useState<ContractInventory[]>([]);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -167,10 +190,14 @@ export default function ContractInventoryMaintenance({ contract, onBack }: Contr
 
   // Read local storage on initial load
   useEffect(() => {
-    const key = `CONTRACT_INVENTORIES_${contract.id}`;
+    const key = `${storagePrefix}${contract.id}`;
     const saved = localStorage.getItem(key);
     if (saved) {
       setInventories(JSON.parse(saved));
+    } else if (seedInventories !== undefined) {
+      // 调用方显式传入播种清单（分包场景；传空数组表示从空白开始）
+      setInventories(seedInventories);
+      localStorage.setItem(key, JSON.stringify(seedInventories));
     } else {
       // Seed with default initial data for illustration
       const seedData: ContractInventory[] = [
@@ -184,7 +211,7 @@ export default function ContractInventoryMaintenance({ contract, onBack }: Contr
           uploadedAt: '2026-06-12 11:24',
           itemCount: 5,
           totalAmount: 302000,
-          items: SAMPLE_EXCEL_FILES[0].items
+          items: SAMPLES[0].items
         },
         {
           id: `seed-inv-2-${contract.id}`,
@@ -196,13 +223,13 @@ export default function ContractInventoryMaintenance({ contract, onBack }: Contr
           uploadedAt: '2026-06-14 16:50',
           itemCount: 4,
           totalAmount: 2257500,
-          items: SAMPLE_EXCEL_FILES[1].items
+          items: SAMPLES[1].items
         }
       ];
       setInventories(seedData);
       localStorage.setItem(key, JSON.stringify(seedData));
     }
-  }, [contract.id, isCrossYear, startYear, contract.name]);
+  }, [contract.id, isCrossYear, startYear, contract.name, storagePrefix, seedInventories, SAMPLES]);
 
   // Auto-expand all tree nodes when inventories are loaded
   useEffect(() => {
@@ -221,7 +248,7 @@ export default function ContractInventoryMaintenance({ contract, onBack }: Contr
   // Sync to local storage on change
   const saveInventoriesLocally = (updated: ContractInventory[]) => {
     setInventories(updated);
-    localStorage.setItem(`CONTRACT_INVENTORIES_${contract.id}`, JSON.stringify(updated));
+    localStorage.setItem(`${storagePrefix}${contract.id}`, JSON.stringify(updated));
   };
 
   // Generate Year Selection List for Dropdowns
@@ -247,7 +274,7 @@ export default function ContractInventoryMaintenance({ contract, onBack }: Contr
 
   // Trigger quick seed simulation
   const handleQuickSelectFile = (fileIndex: number) => {
-    const selected = SAMPLE_EXCEL_FILES[fileIndex];
+    const selected = SAMPLES[fileIndex];
     setChosenFile(selected);
     setFormSpecialty(selected.specialty);
     // Auto-fill template name if empty
@@ -270,7 +297,7 @@ export default function ContractInventoryMaintenance({ contract, onBack }: Contr
     e.preventDefault();
     setIsDragging(false);
     // Drop mock simulation: choose the first sample file randomly
-    const randomIdx = Math.floor(Math.random() * SAMPLE_EXCEL_FILES.length);
+    const randomIdx = Math.floor(Math.random() * SAMPLES.length);
     handleQuickSelectFile(randomIdx);
   };
 
@@ -1018,7 +1045,7 @@ export default function ContractInventoryMaintenance({ contract, onBack }: Contr
               <ArrowLeft size={16} />
             </button>
             <div>
-              <h2 className="text-sm font-black text-slate-800">【合同清单维护】{contract.name}</h2>
+              <h2 className="text-sm font-black text-slate-800">【{heading || '合同清单维护'}】{contract.name}</h2>
               <p className="text-[10px] text-slate-450 mt-0.5">合同编号: {contract.code} | 金额: ¥{contract.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
             </div>
           </div>
@@ -1748,7 +1775,7 @@ export default function ContractInventoryMaintenance({ contract, onBack }: Contr
                   <div className="pt-2 w-full">
                     <p className="text-[9px] text-slate-400 font-bold mb-1">【演示样表】点击即可一秒模拟导入真实业务数据包：</p>
                     <div className="flex flex-wrap items-center justify-center gap-1.5">
-                      {SAMPLE_EXCEL_FILES.map((f, idx) => (
+                      {SAMPLES.map((f, idx) => (
                         <button
                           key={idx}
                           type="button"
