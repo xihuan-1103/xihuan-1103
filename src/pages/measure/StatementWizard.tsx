@@ -1,7 +1,9 @@
 /**
  * 计量单创建向导（分步，从合同发起计量）
  *  Step1 选择合同 → Step2 选择并调整计量子目（同一操作：勾选合同清单子目 + 行内调整数量/变更金额，
- *             新增子目一律从合同清单勾选，按章节分组显示，支持时间段筛选完成量）
+ *             新增子目一律从合同清单勾选，按章节分组显示；子目添加后默认选中所有已施工数量
+ *             即带入全部未上报计量量；「已选计量子目」栏目提供「添加其他子目」按钮，
+ *             点击调取该合同的合同清单，可从中选择子目并编辑数量）
  *  → Step3 预览计量单（图一章节汇总+图二明细）+ 手填扣款项 → 确认创建
  *
  * 使用方式：父组件条件渲染（<StatementWizard .../>），每次打开即全新实例；
@@ -9,8 +11,8 @@
  */
 
 import React, { useMemo, useState } from 'react';
-import { M, Input, TypePill, useToast, fmtNum, fmtMoney } from './_shared';
-import type { MeasureStatement, MeasureStatementLine, StatementDeductions } from './types';
+import { M, Modal, Input, TypePill, useToast, fmtNum, fmtMoney } from './_shared';
+import type { MeasureStatement, MeasureStatementLine, StatementDeductions, MeasurePoolItem } from './types';
 import {
   getPool, getMeasureContracts, upsertStatement, nextPeriodNo, nextStatementCode,
   canMeasure, unreportedQty, periodBuiltQty, prevCumulative,
@@ -62,6 +64,11 @@ export default function StatementWizard({ onClose, onDone, initial, defaultContr
 
   const [pickKw, setPickKw] = useState('');
 
+  // 「添加其他子目」弹窗：调取该合同的合同清单，选择子目并编辑数量
+  const [pickOpen, setPickOpen] = useState(false);
+  const [pickModalKw, setPickModalKw] = useState('');
+  const [pickModalQty, setPickModalQty] = useState<Record<string, number>>({});
+
   /** 新增子目候选：该合同下可计量（正式·合同内）且未选入本期计量单的子目，按章节分组 */
   const pickChapters = useMemo(() => {
     if (!contractId) return [] as [string, typeof pool][];
@@ -78,22 +85,31 @@ export default function StatementWizard({ onClose, onDone, initial, defaultContr
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [pool, contractId, lines, pickKw]);
 
-  /** 时间段变更：重算已选（非手动）行的默认量 */
+  /** 「添加其他子目」弹窗候选：该合同全部可计量（正式·合同内）子目（含已选），按章节分组 */
+  const boqChapters = useMemo(() => {
+    if (!contractId) return [] as [string, MeasurePoolItem[]][];
+    const k = pickModalKw.trim().toLowerCase();
+    const items = pool.filter(p => p.contractId === contractId && canMeasure(p)
+      && (!k || p.code.toLowerCase().includes(k) || p.name.toLowerCase().includes(k)));
+    const map = new Map<string, MeasurePoolItem[]>();
+    for (const p of items) {
+      const ch = chapterOf(p.code);
+      if (!map.has(ch)) map.set(ch, []);
+      map.get(ch)!.push(p);
+    }
+    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [pool, contractId, pickModalKw]);
+
+  /** 时间段变更：仅更新计量时间段（子目添加时默认已带入全部已施工数量，已选行数量不自动重算） */
   const setRange = (from: string, to: string) => {
     setPeriodStart(from);
     setPeriodEnd(to);
-    setLines(prev => prev.map(l => {
-      if (l.manual || !l.poolItemId) return l;
-      const p = pool.find(x => x.id === l.poolItemId);
-      if (!p) return l;
-      const qty = Math.max(0, Math.min(periodBuiltQty(p, from, to), unreportedQty(p)));
-      return { ...l, qty, amount: r2(qty * l.price) };
-    }));
   };
 
-  /** 从合同清单添加子目到本期计量单（新增子目一律从该合同的合同清单中选择，不可自行创建） */
-  const addItem = (p: typeof pool[0]) => {
-    const qty = Math.max(0, Math.min(periodBuiltQty(p, periodStart, periodEnd), unreportedQty(p)));
+  /** 从合同清单添加子目到本期计量单（新增子目一律从该合同的合同清单中选择，不可自行创建）
+   *  添加后默认选中所有已施工数量（=未上报计量量，即已施工量中尚未申报部分），添加后可编辑 */
+  const addItem = (p: MeasurePoolItem, qtyOverride?: number) => {
+    const qty = qtyOverride !== undefined ? Math.max(0, qtyOverride) : Math.max(0, unreportedQty(p));
     const prev = prevCumulative(p.contractId, p.id, periodStart);
     setLines(prevLines => [...prevLines, {
       id: genId('msl'), poolItemId: p.id, chapter: chapterOf(p.code),
@@ -272,22 +288,25 @@ export default function StatementWizard({ onClose, onDone, initial, defaultContr
                   }}>上月</button>
                 </div>
                 <div className="ml-auto text-xs text-slate-500 pb-2">
-                  从下方合同清单添加子目默认带出该时间段完成量（≤未上报计量量），添加后在上方已选列表中编辑数量
+                  添加子目默认带入全部已施工数量（≤未上报计量量），添加后在已选列表中编辑；也可点击已选栏目的「添加其他子目」调取合同清单选择
                 </div>
               </div>
 
               {/* 已选计量子目（选中后在此显示，可编辑数量） */}
               <div className="border border-slate-200 rounded-lg overflow-hidden">
-                <div className="px-4 py-2.5 bg-violet-50/60 border-b border-violet-100 flex items-center justify-between">
+                <div className="px-4 py-2.5 bg-violet-50/60 border-b border-violet-100 flex items-center justify-between gap-3">
                   <div className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
                     <span className="w-1 h-4 bg-violet-500 rounded-full inline-block" />
                     已选计量子目
                   </div>
-                  <div className="text-xs text-slate-500">
-                    共 <b className="text-violet-700">{lines.length}</b> 项 · 本期金额合计 <b className="text-violet-700">{fmtMoney(curTotal)}</b>
-                    {exceededLines.length > 0 && (
-                      <span className="ml-2 text-rose-600">⚠ {exceededLines.length} 项超出未上报计量量（{exceededLines.map(l => l.code).join('、')}），允许计量，已标记</span>
-                    )}
+                  <div className="flex items-center gap-3">
+                    <div className="text-xs text-slate-500">
+                      共 <b className="text-violet-700">{lines.length}</b> 项 · 本期金额合计 <b className="text-violet-700">{fmtMoney(curTotal)}</b>
+                      {exceededLines.length > 0 && (
+                        <span className="ml-2 text-rose-600">⚠ {exceededLines.length} 项超出未上报计量量（{exceededLines.map(l => l.code).join('、')}），允许计量，已标记</span>
+                      )}
+                    </div>
+                    <button className={M.button.tinyViolet} onClick={() => setPickOpen(true)}>+ 添加其他子目</button>
                   </div>
                 </div>
                 <div className="overflow-x-auto">
@@ -309,7 +328,7 @@ export default function StatementWizard({ onClose, onDone, initial, defaultContr
                     <tbody className="divide-y divide-slate-100">
                       {lines.length === 0 && (
                         <tr><td colSpan={10} className={`${M.td} text-center text-slate-400 py-8`}>
-                          暂未选择子目，请从下方「新增子目」的合同清单中添加
+                          暂未选择子目，请点击右上「添加其他子目」或从下方合同清单中添加
                         </td></tr>
                       )}
                       {lines.map(l => {
@@ -434,8 +453,8 @@ export default function StatementWizard({ onClose, onDone, initial, defaultContr
                 </div>
               </div>
               <div className="text-xs text-slate-400">
-                新增子目从该合同的合同清单中选择（仅正式·合同内子目，不可自行创建），添加后默认带出该时间段完成量（≤未上报计量量）并显示在上方已选列表中编辑数量；
-                本期数量允许超过未上报计量量，超出子目将标记提示；该时段无完成量的子目添加后请手动填写本期数量
+                新增子目从该合同的合同清单中选择（仅正式·合同内子目，不可自行创建），添加后默认带入全部已施工数量（≤未上报计量量）并显示在上方已选列表中编辑；
+                本期数量允许超过未上报计量量，超出子目将标记提示；无已施工量的子目添加后请手动填写本期数量
               </div>
             </div>
           )}
@@ -462,6 +481,107 @@ export default function StatementWizard({ onClose, onDone, initial, defaultContr
             </div>
           )}
         </div>
+
+        {/* 添加其他子目：调取该合同的合同清单，选择子目并编辑数量（已选子目可直接改数量） */}
+        <Modal title={`添加其他子目 · ${contract?.name || ''}（合同清单）`} open={pickOpen}
+          onClose={() => setPickOpen(false)} width="max-w-5xl"
+          footer={<>
+            <div className="mr-auto text-xs text-slate-500">
+              已选 <b className="text-violet-700">{lines.length}</b> 项 · 本期金额合计 <b className="text-violet-700">{fmtMoney(curTotal)}</b>
+            </div>
+            <button className={M.button.primary} onClick={() => setPickOpen(false)}>完成</button>
+          </>}>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-xs text-slate-500">
+                从该合同的合同清单中选择子目并编辑数量；添加后默认带入全部已施工数量（≤未上报计量量），可在此修改数量后再添加
+              </div>
+              <Input value={pickModalKw} onChange={setPickModalKw} placeholder="子目号 / 名称" className="!w-44" />
+            </div>
+            <div className="overflow-x-auto overflow-y-auto max-h-[55vh] border border-slate-200 rounded-lg">
+              <table className={M.table}>
+                <thead className="sticky top-0 z-10">
+                  <tr>
+                    <th className={M.th}>子目号</th>
+                    <th className={M.th}>子目名称</th>
+                    <th className={`${M.th} text-right`}>单价(元)</th>
+                    <th className={`${M.th} text-right`}>合同数量</th>
+                    <th className={`${M.th} text-right`}>已施工</th>
+                    <th className={`${M.th} text-right`}>未上报计量量</th>
+                    <th className={`${M.th} w-28 text-right`}>本期数量</th>
+                    <th className={`${M.th} text-center`}>操作</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {boqChapters.length === 0 && (
+                    <tr><td colSpan={8} className={`${M.td} text-center text-slate-400 py-8`}>
+                      未找到匹配的合同清单子目
+                    </td></tr>
+                  )}
+                  {boqChapters.map(([ch, chItems]) => (
+                    <React.Fragment key={ch || 'other'}>
+                      {/* 章节层级行 */}
+                      <tr className="bg-slate-50/80">
+                        <td colSpan={8} className="px-3 py-1.5">
+                          <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                            <span className="w-1 h-3 bg-violet-400 rounded-full inline-block" />
+                            章节 {ch || '—'} · {chapterName(ch)}
+                            <span className="text-slate-400 font-normal">
+                              （{chItems.length} 子目 · 合同价 {fmtMoney(chItems.reduce((s, p) => s + (p.totalQty || 0) * p.price, 0))}）
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                      {chItems.map(p => {
+                        const line = lines.find(l => l.poolItemId === p.id);
+                        const over = !!line && line.qty > unreportedQty(p);   // 超出未上报计量量（允许，仅标记提示）
+                        return (
+                          <tr key={p.id} className={line ? 'bg-violet-50/40' : 'hover:bg-slate-50 transition-colors'}>
+                            <td className={`${M.td} font-mono text-violet-700`}>{p.code}</td>
+                            <td className={`${M.td} font-medium`}>
+                              {p.name}
+                              {p.isSafeFee && <span className="ml-1"><TypePill text="安全生产费" tone="cyan" /></span>}
+                            </td>
+                            <td className={`${M.td} text-right tabular-nums`}>{fmtNum(p.price)}</td>
+                            <td className={`${M.td} text-right tabular-nums`}>{fmtNum(p.totalQty)}</td>
+                            <td className={`${M.td} text-right tabular-nums`}>{fmtNum(builtQty(p))}</td>
+                            <td className={`${M.td} text-right tabular-nums font-medium text-orange-600`}>{fmtNum(unreportedQty(p))}</td>
+                            <td className={M.td}>
+                              {line ? (
+                                <input type="number" step="any" value={line.qty}
+                                  onChange={e => updateLine(line.id, { qty: Number(e.target.value) || 0 })}
+                                  className={`w-24 px-2 py-1 border rounded-md text-right text-sm tabular-nums outline-none focus:ring-1
+                                    ${over ? 'border-rose-400 focus:ring-rose-400' : 'border-violet-300 focus:ring-violet-500'}`} />
+                              ) : (
+                                <input type="number" step="any" value={pickModalQty[p.id] ?? Math.max(0, unreportedQty(p))}
+                                  onChange={e => setPickModalQty(q => ({ ...q, [p.id]: Number(e.target.value) || 0 }))}
+                                  className="w-24 px-2 py-1 border border-slate-300 rounded-md text-right text-sm tabular-nums outline-none focus:ring-1 focus:ring-violet-500" />
+                              )}
+                              {over && (
+                                <div className="text-[10px] text-rose-600 leading-tight mt-0.5 whitespace-nowrap">超出未上报量 {fmtNum(unreportedQty(p))}</div>
+                              )}
+                            </td>
+                            <td className={`${M.td} text-center`}>
+                              {line ? (
+                                <TypePill text="已选" tone="emerald" />
+                              ) : (
+                                <button className={M.button.tinyViolet}
+                                  onClick={() => {
+                                    addItem(p, pickModalQty[p.id] ?? Math.max(0, unreportedQty(p)));
+                                    setPickModalQty(q => { const n = { ...q }; delete n[p.id]; return n; });
+                                  }}>+ 添加</button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </React.Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </Modal>
 
         {/* 底部按钮 */}
         <div className="px-6 py-3 border-t border-slate-200 flex justify-between items-center bg-slate-50 rounded-b-xl">

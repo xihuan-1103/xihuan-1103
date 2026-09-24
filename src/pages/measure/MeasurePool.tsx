@@ -1,6 +1,8 @@
 /**
  * 计量数据池（v2 重构）
- *  - 按合同归类，合同清单按章节层级结构显示（100总则 / 200路基 / 300路面 / …）
+ *  - 按合同归类（按合同编号排序），合同下可申报计量的清单默认收起，
+ *    点击合同行「展开清单」展开该合同子目（按章节层级：100总则 / 200路基 / 300路面 / …）
+ *  - 合同行汇总信息：可计量子目数、可申报计量金额（未上报价值）、历史已申报计量、有批复计量
  *  - 主列表仅展示「可计量」子目（正式·合同内）；合同外 / 临时子目不在主列表展示，
  *    其施工量经「转入正式」计入正式·合同内后参与计量
  *  - 支持在合同下直接「发起计量」（分步向导：选时段子目 → 调整 → 预览 → 创建）
@@ -47,6 +49,10 @@ export default function MeasurePool({ onRefresh }: Props) {
   // 发起计量向导（contractId 为空表示关闭）
   const [wizardContract, setWizardContract] = useState<string | null>(null);
 
+  // 合同清单展开状态（默认收起，点击合同行「展开清单」展开该合同下可申报计量的清单）
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const toggleExpand = (cid: string) => setExpanded(e => ({ ...e, [cid]: !e[cid] }));
+
   /** 主列表：仅可计量（正式·合同内）子目 */
   const measurableItems = pool.filter(p => {
     if (!canMeasure(p)) return false;
@@ -59,7 +65,7 @@ export default function MeasurePool({ onRefresh }: Props) {
     return true;
   });
 
-  /** 按合同 → 章节两级分组 */
+  /** 按合同 → 章节两级分组（合同按合同编号排序） */
   const grouped = useMemo(() => {
     const byContract = new Map<string, MeasurePoolItem[]>();
     for (const p of measurableItems) {
@@ -75,8 +81,12 @@ export default function MeasurePool({ onRefresh }: Props) {
       }
       const chapters = [...byChapter.entries()].sort((a, b) => a[0].localeCompare(b[0]));
       return { cid, items, chapters };
+    }).sort((a, b) => {
+      const ca = contracts.find(x => x.id === a.cid)?.code || a.cid;
+      const cb = contracts.find(x => x.id === b.cid)?.code || b.cid;
+      return ca.localeCompare(cb);
     });
-  }, [measurableItems]);
+  }, [measurableItems, contracts]);
 
   // 汇总
   const allMeasurable = pool.filter(canMeasure);
@@ -169,32 +179,51 @@ export default function MeasurePool({ onRefresh }: Props) {
       {/* 按合同 → 章节层级展示（仅可计量子目） */}
       {grouped.map(({ cid, items, chapters }) => {
         const c = contracts.find(x => x.id === cid);
-        const unrepValue = items.reduce((s, p) => s + unreportedQty(p) * p.price, 0);
+        // 合同级汇总（不受搜索/筛选影响）：可计量子目数、可申报计量金额、历史已申报计量、有批复计量
+        const cItems = pool.filter(p => p.contractId === cid && canMeasure(p));
+        const unrepValue = cItems.reduce((s, p) => s + unreportedQty(p) * p.price, 0);
+        const reportedValue = cItems.reduce((s, p) => s + (p.reportedQty || 0) * p.price, 0);
+        const approvedValue = cItems.reduce((s, p) => s + (p.approvedQty || 0) * p.price, 0);
+        const isOpen = !!expanded[cid];
         return (
           <div key={cid} className="bg-white rounded-xl border border-slate-200 overflow-hidden mb-4">
-            {/* 合同头 */}
-            <div className="px-4 py-3 bg-violet-50/60 border-b border-violet-100 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-4 bg-violet-500 rounded-full" />
-                <div>
-                  <div className="font-bold text-sm text-slate-800">{c?.name || items[0].contractName}</div>
-                  <div className="text-xs text-slate-500 font-mono">
+            {/* 合同头（汇总信息 + 展开/收起清单 + 发起计量） */}
+            <div className="px-4 py-3 bg-violet-50/60 border-b border-violet-100 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-1.5 h-4 bg-violet-500 rounded-full shrink-0" />
+                <div className="min-w-0">
+                  <div className="font-bold text-sm text-slate-800 truncate">{c?.name || items[0].contractName}</div>
+                  <div className="text-xs text-slate-500 font-mono truncate">
                     {c?.code} · {items[0].projectName} · 业主：{c?.ownerName}
                     {c?.ownerType === 'jtou' ? '（交投·推送批复）' : '（其他·自闭环）'}
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="text-right">
-                  <div className="text-xs text-slate-500">
-                    章节 {chapters.length} · 可计量子目 {items.length} 项
+              <div className="flex flex-wrap items-center gap-3 shrink-0">
+                <div className="flex items-center gap-4">
+                  <div className="text-center">
+                    <div className="text-[11px] text-slate-400">可计量子目</div>
+                    <div className="text-sm font-bold text-violet-600 tabular-nums">{cItems.length} <span className="text-[11px] font-normal text-slate-400">项</span></div>
                   </div>
-                  <div className="text-xs text-orange-600 font-medium">未上报价值 {fmtMoney(unrepValue)}</div>
+                  <div className="text-center">
+                    <div className="text-[11px] text-slate-400">可申报计量金额</div>
+                    <div className="text-sm font-bold text-orange-600 tabular-nums">{fmtMoney(unrepValue)}</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-[11px] text-slate-400">历史已申报计量</div>
+                    <div className="text-sm font-bold text-sky-600 tabular-nums">{fmtMoney(reportedValue)}</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-[11px] text-slate-400">有批复计量</div>
+                    <div className="text-sm font-bold text-emerald-600 tabular-nums">{fmtMoney(approvedValue)}</div>
+                  </div>
                 </div>
+                <button className={M.button.tiny} onClick={() => toggleExpand(cid)}>{isOpen ? '收起清单' : '展开清单'}</button>
                 <button className={M.button.primary} onClick={() => setWizardContract(cid)}>发起计量</button>
               </div>
             </div>
-            {/* 章节层级清单 */}
+            {/* 章节层级清单（默认收起，点击合同行「展开清单」展开） */}
+            {isOpen && (
             <div className="overflow-x-auto">
               <table className={M.table}>
                 <thead>
@@ -271,6 +300,7 @@ export default function MeasurePool({ onRefresh }: Props) {
                 </tbody>
               </table>
             </div>
+            )}
           </div>
         );
       })}
@@ -284,10 +314,11 @@ export default function MeasurePool({ onRefresh }: Props) {
       <div className="bg-white rounded-xl border border-slate-200 p-4 text-xs text-slate-500 leading-relaxed">
         <b className="text-slate-700">计量口径（方案表5-1）：</b>
         已施工量 = 施工日志报工 + 手动计入产值 + 临时转入；未上报计量量 = 已施工量 − 已上报计量量；未批复计量量 = 已上报计量量 − 已批复计量量。
-        <b className="text-slate-700">数据池展示范围：</b>仅可计量（正式·合同内）子目按合同 → 章节层级展示；
+        <b className="text-slate-700">数据池展示范围：</b>仅可计量（正式·合同内）子目按合同分组（按合同编号排序）→ 章节层级展示；
+        合同下清单默认收起，点击合同行「展开清单」查看；合同行汇总可计量子目数、可申报计量金额（未上报价值）、历史已申报计量、有批复计量；
         合同外 / 临时清单子目不在主列表展示，经「转入正式」后计入目标子目参与计量。
         <b className="text-slate-700">子目来源：</b>数据池子目由合同清单同步维护，不支持手动新增；发起计量时在弹窗内从该合同的合同清单中选择子目，选中后可编辑数量。
-        <b className="text-slate-700">发起计量：</b>选择合同 → 在弹窗中从合同清单选择子目（可编辑数量/变更金额）→ 预览（章节汇总+子目明细）→ 手填扣款 → 确认创建。
+        <b className="text-slate-700">发起计量：</b>选择合同 → 在弹窗中从合同清单选择子目（添加后默认带入全部已施工数量，可编辑数量/变更金额；也可在已选栏目点击「添加其他子目」调取该合同合同清单选择并编辑数量）→ 预览（章节汇总+子目明细）→ 手填扣款 → 确认创建。
       </div>
 
       {/* 发起计量向导（预选合同，直接进入选子目步骤） */}
