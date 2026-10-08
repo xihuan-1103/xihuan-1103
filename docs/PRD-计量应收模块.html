@@ -3,589 +3,393 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PRD - 计量应收模块</title>
+<title>PRD - 计量应收模块（V2.0）</title>
 <style>
   :root {
     --violet: #7c3aed; --violet-light: #f5f3ff; --violet-border: #ddd6fe;
-    --slate-900: #0f172a; --slate-700: #334155; --slate-500: #64748b; --slate-400: #94a3b8;
-    --slate-200: #e2e8f0; --slate-100: #f1f5f9; --slate-50: #f8fafc;
-    --amber: #d97706; --emerald: #059669; --rose: #e11d48; --sky: #0284c7; --orange: #ea580c;
+    --slate-900: #0f172a; --slate-700: #334155; --slate-500: #64748b;
+    --amber: #d97706; --emerald: #059669; --rose: #e11d48; --sky: #0284c7;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: "PingFang SC", "Microsoft YaHei", -apple-system, sans-serif; color: var(--slate-700); background: var(--slate-100); line-height: 1.7; font-size: 14px; }
-  .page { max-width: 1180px; margin: 0 auto; padding: 0 24px 60px; }
-
-  /* 封面 */
-  .cover { background: linear-gradient(135deg, #4c1d95 0%, #7c3aed 60%, #a78bfa 100%); color: #fff; border-radius: 0 0 20px 20px; padding: 48px 40px 40px; margin-bottom: 28px; }
-  .cover h1 { font-size: 30px; letter-spacing: 1px; margin-bottom: 6px; }
-  .cover .sub { font-size: 15px; opacity: .85; margin-bottom: 22px; }
-  .cover .meta { display: flex; flex-wrap: wrap; gap: 28px; font-size: 13px; }
-  .cover .meta b { display: block; opacity: .7; font-weight: 400; font-size: 12px; }
-  .cover .meta span { font-weight: 600; }
-
-  /* 目录 */
-  .toc { background: #fff; border: 1px solid var(--slate-200); border-radius: 12px; padding: 18px 24px; margin-bottom: 28px; }
-  .toc h3 { font-size: 15px; color: var(--slate-900); margin-bottom: 10px; }
-  .toc ol { margin-left: 20px; }
-  .toc a { color: var(--violet); text-decoration: none; }
-  .toc a:hover { text-decoration: underline; }
-  .toc li { margin: 2px 0; }
-
-  /* 章节标题 */
-  h2.sec { font-size: 21px; color: var(--slate-900); margin: 40px 0 14px; padding-left: 12px; border-left: 5px solid var(--violet); }
-  h3.sub { font-size: 16px; color: var(--slate-900); margin: 24px 0 10px; display: flex; align-items: center; gap: 8px; }
-  h3.sub::before { content: ""; width: 8px; height: 16px; background: var(--violet); border-radius: 4px; display: inline-block; }
-  h4.ss { font-size: 14.5px; color: var(--slate-900); margin: 16px 0 8px; }
-  p { margin: 6px 0; }
-  ul.plain { margin: 6px 0 6px 22px; }
-  ul.plain li { margin: 3px 0; }
-  .note { background: var(--violet-light); border: 1px solid var(--violet-border); border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #5b21b6; margin: 10px 0; }
-  .warn { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #92400e; margin: 10px 0; }
-
-  /* 表格 */
-  table.t { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid var(--slate-200); border-radius: 8px; overflow: hidden; margin: 10px 0 16px; font-size: 13px; }
-  table.t th { background: var(--slate-100); color: var(--slate-700); font-weight: 600; padding: 8px 10px; border: 1px solid var(--slate-200); text-align: left; }
-  table.t td { padding: 7px 10px; border: 1px solid var(--slate-200); vertical-align: top; }
-  table.t td.c, table.t th.c { text-align: center; }
-  table.t tr:nth-child(even) td { background: #fafafd; }
-  code { font-family: "SF Mono", Menlo, Consolas, monospace; background: var(--slate-100); border-radius: 4px; padding: 1px 5px; font-size: 12px; color: var(--violet); }
-  .k { font-family: "SF Mono", Menlo, monospace; color: var(--violet); font-size: 12.5px; }
-
-  /* 截图 */
-  .shot { background: #fff; border: 1px solid var(--slate-200); border-radius: 12px; padding: 14px; margin: 12px 0 18px; }
-  .shot .cap { font-size: 12.5px; color: var(--slate-500); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
-  .shot .cap::before { content: "▣"; color: var(--violet); font-size: 11px; }
-  .shot img { width: 100%; border: 1px solid var(--slate-200); border-radius: 8px; display: block; }
-
-  /* 流程链路图 */
-  .flow { display: flex; flex-wrap: wrap; align-items: stretch; gap: 6px; margin: 14px 0 18px; }
-  .flow .node { background: #fff; border: 2px solid var(--violet-border); border-radius: 10px; padding: 10px 12px; flex: 1; min-width: 130px; text-align: center; }
-  .flow .node b { display: block; font-size: 13.5px; color: var(--slate-900); }
-  .flow .node span { font-size: 11.5px; color: var(--slate-500); display: block; margin-top: 2px; }
-  .flow .arr { align-self: center; color: var(--violet); font-weight: 700; font-size: 16px; }
-  .flow .node.hl { background: var(--violet-light); border-color: var(--violet); }
-  .flow .node.hl2 { background: #ecfdf5; border-color: var(--emerald); }
-
-  /* 状态机 */
-  .states { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
-  .st { border-radius: 999px; padding: 4px 14px; font-size: 12.5px; font-weight: 600; border: 1px solid; }
-  .st.g { background: #f1f5f9; color: var(--slate-700); border-color: var(--slate-200); }   /* 草稿 */
-  .st.v { background: var(--violet-light); color: var(--violet); border-color: var(--violet-border); }
-  .st.y { background: #fffbeb; color: var(--amber); border-color: #fde68a; }
-  .st.e { background: #ecfdf5; color: var(--emerald); border-color: #a7f3d0; }
-  .st.r { background: #fff1f2; color: var(--rose); border-color: #fecdd3; }
-  .st.s { background: #f0f9ff; color: var(--sky); border-color: #bae6fd; }
-  .arrow-r { align-self: center; color: var(--slate-400); font-weight: 700; }
-
-  .footer { text-align: center; color: var(--slate-400); font-size: 12px; margin-top: 48px; border-top: 1px solid var(--slate-200); padding-top: 16px; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", -apple-system, sans-serif;
+    color: var(--slate-700); background: #f8fafc; margin: 0; line-height: 1.75;
+  }
+  .page { max-width: 1000px; margin: 0 auto; padding: 32px 40px 80px; background: #fff; min-height: 100vh; }
+  h1 { color: var(--slate-900); font-size: 28px; border-bottom: 3px solid var(--violet); padding-bottom: 12px; }
+  h2 { color: var(--violet); font-size: 20px; margin-top: 48px; border-left: 5px solid var(--violet); padding-left: 10px; }
+  h3 { color: var(--slate-900); font-size: 16px; margin-top: 28px; }
+  h4 { color: var(--slate-900); font-size: 14px; margin: 18px 0 6px; }
+  .meta { color: var(--slate-500); font-size: 13px; margin-top: -8px; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 13px; }
+  th { background: var(--violet-light); color: var(--slate-900); border: 1px solid #e2e8f0; padding: 8px 10px; text-align: left; }
+  td { border: 1px solid #e2e8f0; padding: 8px 10px; vertical-align: top; }
+  tr:nth-child(even) td { background: #fafafa; }
+  .shot { width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; margin: 10px 0 4px; }
+  .shot-cap { font-size: 12px; color: var(--slate-500); text-align: center; margin-bottom: 20px; }
+  .rule { background: var(--violet-light); border: 1px solid var(--violet-border); border-radius: 8px; padding: 12px 16px; margin: 12px 0; font-size: 13px; }
+  .rule b { color: var(--violet); }
+  .flow { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px 16px; margin: 12px 0; font-size: 13px; }
+  .flow b { color: var(--emerald); }
+  .warn { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 10px 14px; margin: 12px 0; font-size: 13px; }
+  ul, ol { padding-left: 22px; } li { margin: 4px 0; }
+  code { background: #f1f5f9; padding: 1px 6px; border-radius: 4px; font-size: 12px; color: var(--violet); }
+  .toc { background: #fafafa; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px 28px; font-size: 14px; }
+  .toc a { color: var(--slate-700); text-decoration: none; display: block; padding: 3px 0; }
+  .toc a:hover { color: var(--violet); }
+  .pill { display: inline-block; padding: 0 8px; border-radius: 999px; font-size: 12px; margin-right: 4px; }
+  .p-draft { background: #f1f5f9; color: #475569; } .p-wait { background: #eff6ff; color: #1d4ed8; }
+  .p-ok { background: #ecfdf5; color: #059669; } .p-rej { background: #fff1f2; color: #e11d48; }
 </style>
 </head>
 <body>
 <div class="page">
 
-  <!-- ================= 封面 ================= -->
-  <div class="cover">
-    <h1>计量应收模块 · 产品需求文档（PRD）</h1>
-    <div class="sub">公路养护工程项目管理平台 —— 计量业务 × 应收管理 端到端链路</div>
-    <div class="meta">
-      <div><b>文档版本</b><span>V1.2</span></div>
-      <div><b>发布日期</b><span>2026-10-02</span></div>
-      <div><b>文档状态</b><span>已定稿（与代码实现一致）</span></div>
-      <div><b>模块入口</b><span>一级菜单「计量应收」</span></div>
-      <div><b>涉及页面</b><span>6 个页面 + 2 个核心弹窗组件</span></div>
-    </div>
-  </div>
+<h1>计量应收模块需求文档</h1>
+<p class="meta">版本 V2.0 ｜ 2026-10-08 ｜ 依据系统最新交互实测整理 ｜ 金额单位：元（人民币）</p>
 
-  <!-- ================= 目录 ================= -->
-  <div class="toc">
-    <h3>目录</h3>
-    <ol>
-      <li><a href="#s1">模块概述（定位 · 业务背景 · 菜单结构 · 用户角色）</a></li>
-      <li><a href="#s2">端到端业务链路</a></li>
-      <li><a href="#s3">核心业务口径与状态机</a></li>
-      <li><a href="#s4">页面功能详述
-        <ol>
-          <li><a href="#s4-1">计量数据池（含发起计量向导、计量单预览）</a></li>
-          <li><a href="#s4-2">计量台账</a></li>
-          <li><a href="#s4-3">批复管理</a></li>
-          <li><a href="#s4-4">计量单管理</a></li>
-          <li><a href="#s4-5">应收单</a></li>
-          <li><a href="#s4-6">回款跟踪</a></li>
-        </ol>
-      </a></li>
-      <li><a href="#s5">数据字典（实体与字段说明）</a></li>
-      <li><a href="#s6">业务规则与校验清单</a></li>
-    </ol>
-  </div>
+<div class="toc">
+  <b>目录</b>
+  <a>一、模块总览（业务流程 / 菜单结构 / 全局规则）</a>
+  <a>二、计量数据池（含发起计量向导）</a>
+  <a>三、计量台账</a>
+  <a>四、批复管理</a>
+  <a>五、计量单管理</a>
+  <a>六、应收单</a>
+  <a>七、回款跟踪</a>
+  <a>八、附录：状态流转与编号规则</a>
+</div>
 
-  <!-- ================= 1 模块概述 ================= -->
-  <h2 class="sec" id="s1">一、模块概述</h2>
+<h2>一、模块总览</h2>
 
-  <h3 class="sub">1.1 模块定位</h3>
-  <p>计量应收模块是养护工程项目管理平台的核心收支闭环模块，覆盖<b>「产值 → 计量 → 批复 → 应收 → 回款」</b>全链路：以收入合同的工程量清单为基础形成<b>计量数据池</b>，按计量期发起计量并生成<b>计量单（台账）</b>，经交投系统推送批复或系统内自闭环批复后自动生成<b>计量凭证（计量单管理）</b>，再按合同一一对应生成<b>应收单</b>并推送交投财务共享，最终在<b>回款跟踪</b>中登记回款、形成计量—回款对比台账。</p>
+<h3>1.1 业务背景与目标</h3>
+<p>公路养护工程按合同周期向业主申报计量并收取工程款。本模块覆盖<b>从产值形成到资金回笼</b>的完整业务链路：施工产值沉淀为可计量工程量 → 按期发起计量申报 → 系统内维护业主批复 → 依据批复生成计量凭证与应收单 → 跟踪业主回款，实现"计量—应收—回款"全过程线上化、可追溯。</p>
 
-  <h3 class="sub">1.2 业务背景</h3>
-  <ul class="plain">
-    <li><b>交投业主（jtou）</b>：与交投养护管理平台系统打通，计量数据推送交投批复、批复结果回传后自动比对申报与批复差异、识别扣款；</li>
-    <li><b>其他业主（other）</b>：在系统内自闭环批复（直接录入批复结果 / 驳回）；</li>
-    <li><b>2026-11 交投关闭直报口子后</b>，「经交工计量系统应收单填报 → 推送交投财务共享」成为养护应收的唯一通道，本模块应收链路即按此设计；</li>
-    <li>审批链遵循「内部审核 → 监理审核 → 业主批复」三级链路。</li>
-  </ul>
+<h3>1.2 业务流程总览</h3>
+<div class="flow">
+<b>业务主链路：</b><br>
+计量数据池（可计量工程量积累）→ 发起计量（三步向导，生成计量单草稿）→ 计量台账（提交批复）→ 批复管理（系统内维护批复：行级批复数量 + 最终批复金额 + 批复附件）→ 计量单管理（按合同查看计量单，已批复的可生成应收单）→ 应收单（填报推送，财务共享确认）→ 回款跟踪（登记/新增回款，形成计量-回款对比台账）
+</div>
+<div class="rule">
+<b>关键说明：</b>所有计量单（含交投业主合同）统一在系统内维护计量批复，不再向交投系统推送批复流程；批复通过后系统自动生成计量凭证，并按<b>行级批复数量</b>回写数据池的累计批复量。
+</div>
 
-  <h3 class="sub">1.3 菜单与页面结构</h3>
-  <table class="t">
-    <tr><th class="c">分组</th><th>页面</th><th>路由</th><th>一句话说明</th></tr>
-    <tr><td rowspan="4" class="c"><b>计量业务</b></td><td>计量数据池</td><td class="k">/measure/pool</td><td>按「主合同 / 协同合同」双页签归类的可计量工程量总库，协同量推送、发起计量的入口</td></tr>
-    <tr><td>计量台账</td><td class="k">/measure/statement</td><td>计量单（按合同+期间）的创建、提交批复、预览报表</td></tr>
-    <tr><td>批复管理</td><td class="k">/measure/approval</td><td>交投推送批复 / 其他业主自闭环批复，扣款对比</td></tr>
-    <tr><td>计量单管理</td><td class="k">/measure/order</td><td>批复后自动生成的计量凭证，生成应收单的依据</td></tr>
-    <tr><td rowspan="2" class="c"><b>应收管理</b></td><td>应收单</td><td class="k">/measure/receivable</td><td>按合同 1:1 生成，推送交投财务共享并确认</td></tr>
-    <tr><td>回款跟踪</td><td class="k">/measure/payment</td><td>登记回款（多笔部分回款），计量—回款对比台账</td></tr>
-  </table>
+<h3>1.3 菜单结构</h3>
+<table>
+  <tr><th>一级菜单</th><th>分组</th><th>页面</th><th>定位</th></tr>
+  <tr><td rowspan="6">计量应收</td><td rowspan="4">计量业务</td><td>计量数据池</td><td>按合同归集可计量子目与工程量，发起计量的入口</td></tr>
+  <tr><td>计量台账</td><td>计量单全生命周期管理（草稿/待审批/已批复/已驳回）</td></tr>
+  <tr><td>批复管理</td><td>对已申报计量单维护批复结果</td></tr>
+  <tr><td>计量单管理</td><td>以合同维度查看已申报计量单，已批复的可生成应收单</td></tr>
+  <tr><td rowspan="2">应收管理</td><td>应收单</td><td>应收单填报、推送财务共享与确认</td></tr>
+  <tr><td>回款跟踪</td><td>回款登记/流水管理，计量-回款对比</td></tr>
+</table>
 
-  <h3 class="sub">1.4 用户角色</h3>
-  <table class="t">
-    <tr><th>角色</th><th>职责与常用操作</th></tr>
-    <tr><td>经办技术员（默认「陈技术」）</td><td>维护数据池子目、发起计量、编辑计量单、提交批复</td></tr>
-    <tr><td>计量/合同管理员</td><td>临时/合同外子目「转入正式」、批复操作（交投回传 / 自闭环）、计量单归档</td></tr>
-    <tr><td>财务人员</td><td>生成应收单、推送财务共享、确认、登记回款</td></tr>
-  </table>
+<h3>1.4 全局规则</h3>
+<ul>
+  <li><b>金额单位：</b>全部为人民币元，页面统一以"元"展示（页面右上角标注"单位：元 / 人民币"），金额保留两位小数并按千分位分隔。</li>
+  <li><b>数量类字段</b>（工程量、行数等）不带货币单位；百分比字段（税率、回款率）以 % 展示。</li>
+  <li><b>业主类型：</b>分为"交投业主"与"其他业主"两类，仅用于区分业主属性；两类合同的批复均在本系统内维护。</li>
+  <li><b>单据编号：</b>计量单 <code>JL-年月-序号</code>、计量凭证 <code>JLD-年月-序号</code>、应收单 <code>YSD-年月-序号</code>，按合同维度递增期数。</li>
+</ul>
 
-  <!-- ================= 2 端到端业务链路 ================= -->
-  <h2 class="sec" id="s2">二、端到端业务链路</h2>
-  <div class="flow">
-    <div class="node"><b>计量数据池</b><span>主合同 / 协同合同双页签<br>正式·合同内子目未上报计量量<br>协同量推送到主合同</span></div>
-    <div class="arr">→</div>
-    <div class="node"><b>发起计量</b><span>3步向导<br>默认带入全部已施工</span></div>
-    <div class="arr">→</div>
-    <div class="node"><b>计量台账(草稿)</b><span>图一汇总+图二明细<br>手填扣款项</span></div>
-    <div class="arr">→</div>
-    <div class="node"><b>提交批复</b><span>回写数据池<br>已上报量</span></div>
-    <div class="arr">→</div>
-    <div class="node hl"><b>批复</b><span>交投推送/回传<br>其他自闭环</span></div>
-    <div class="arr">→</div>
-    <div class="node hl"><b>计量凭证</b><span>自动生成<br>申报/批复/扣款对比</span></div>
-    <div class="arr">→</div>
-    <div class="node hl2"><b>应收单</b><span>按合同1:1生成<br>推送财务共享</span></div>
-    <div class="arr">→</div>
-    <div class="node hl2"><b>回款跟踪</b><span>财务共享确认后<br>登记回款</span></div>
-  </div>
-  <div class="note">链路要点：① 提交批复即回写数据池 <code>reportedQty</code>（已上报量），驳回/重新编辑会释放；② 批复通过即回写 <code>approvedQty</code>（已批复量）并自动生成计量凭证；③ 应收金额 = 计量凭证批复金额（含税）；④ 仅「财务共享已确认」的应收单可登记回款。</div>
+<h2>二、计量数据池</h2>
 
-  <!-- ================= 3 核心口径与状态机 ================= -->
-  <h2 class="sec" id="s3">三、核心业务口径与状态机</h2>
+<h3>2.1 功能定位</h3>
+<p>计量数据池是各收入合同"可计量工程量"的总库：按合同归类展示正式·合同内子目，汇总其总量、已施工量、已上报/已批复计量量，是发起计量的唯一数据来源。同时区分<b>主合同</b>（当前单位为合同签订主要单位）与<b>协同合同</b>（当前单位为合同协同单位）：主合同可直接发起计量；协同合同仅查看确认并推送量至主合同，不直接生成计量单。</p>
 
-  <h3 class="sub">3.1 数据池核心口径（公式）</h3>
-  <table class="t">
-    <tr><th>口径</th><th>公式 / 定义</th><th>说明</th></tr>
-    <tr><td><b>本组织完成量</b></td><td class="k">ownQty = logQty + manualQty + transferInQty</td><td>本组织自行完成：施工日志报工 + 手动计入产值 + 临时转入</td></tr>
-    <tr><td><b>协同单位完成量</b></td><td class="k">coopQty</td><td>主合同子目由关联协同合同「推送主合同」自动累计的量（只读，不可直接编辑）</td></tr>
-    <tr><td><b>已施工量</b></td><td class="k">builtQty = ownQty + coopQty</td><td>已施工 = 本组织完成 + 协同单位完成</td></tr>
-    <tr><td><b>可计量（资格）</b></td><td class="k">canMeasure = (listType='formal') && (contractAttr='in')</td><td>仅「正式 · 合同内」子目参与计量；临时/合同外需先「转入正式」</td></tr>
-    <tr><td><b>未上报计量量</b></td><td class="k">unreportedQty = builtQty − reportedQty</td><td>可申报计量的余量；发起计量添加子目默认带入该值（= 所有已施工且未申报数量）</td></tr>
-    <tr><td><b>计量行来源拆分</b></td><td class="k">ownUnreportedQty / coopUnreportedQty</td><td>未上报计量量按来源拆分为「本组织 / 协同单位」两部分（历史申报优先消耗本组织量），计量行据此快照 ownQty / coopQty 构成</td></tr>
-    <tr><td><b>未推送量（协同）</b></td><td class="k">unpushedQty = ownQty − pushedQty</td><td>协同合同子目可推送至主合同的量（协同页签口径）</td></tr>
-    <tr><td><b>未批复计量量</b></td><td class="k">unapprovedQty = reportedQty − approvedQty</td><td>已上报待批复的量</td></tr>
-    <tr><td><b>实际支付金额</b></td><td class="k">netPayable = 本期完成合计 + Σ增加项 − Σ扣减项</td><td>扣款/调整项见 4.1 计量单预览</td></tr>
-    <tr><td><b>章节</b></td><td class="k">chapterOf(code) = 子目号数字前缀</td><td>302-1-a → 章节 302；100 总则 / 200 路基 / 300 路面 / …</td></tr>
-  </table>
+<h3>2.2 页面结构（自上而下）</h3>
+<h4>① 顶部汇总卡片（主合同维度）</h4>
+<table>
+  <tr><th>卡片</th><th>口径</th></tr>
+  <tr><td>可计量合同</td><td>主合同数量（份）</td></tr>
+  <tr><td>可计量子目</td><td>正式·合同内子目总数（项）</td></tr>
+  <tr><td>未上报计量量价值</td><td>全部可计量子目未上报计量量 × 综合单价的合计（元）</td></tr>
+</table>
 
-  <h3 class="sub">3.2 计量单（台账）状态机</h3>
-  <div class="states">
-    <span class="st g">draft 草稿</span><span class="arrow-r">—提交批复（回写上报量）→</span>
-    <span class="st v">submitted 已申报·待批复</span><span class="arrow-r">—交投推送→</span>
-    <span class="st y">approving 批复中(交投)</span><span class="arrow-r">—回传→</span>
-    <span class="st e">approved 已批复</span>
-  </div>
-  <div class="states">
-    <span class="st r">rejected 已驳回</span><span class="arrow-r">—重新编辑（释放上报量）→</span><span class="st g">draft 草稿</span>
-    <span style="align-self:center;font-size:12px;color:var(--slate-400);">（其他业主自闭环：submitted 直接 批复通过 → approved / 驳回 → rejected）</span>
-  </div>
+<h4>② 合同角色页签</h4>
+<ul>
+  <li><b>主合同</b>（默认选中）：当前单位为签订主要单位的合同，支持"展开清单""发起计量"。</li>
+  <li><b>协同合同</b>：当前单位为协同单位的合同，仅支持查看确认与推送主合同。</li>
+</ul>
 
-  <h3 class="sub">3.3 计量凭证 / 应收单状态机</h3>
-  <div class="states">
-    <span class="st e">effective 生效</span><span class="arrow-r">—归档→</span><span class="st g">archived 已归档（结算依据留存）</span>
-  </div>
-  <div class="states">
-    <span class="st y">draft 待推送</span><span class="arrow-r">—经交工计量系统推送→</span>
-    <span class="st s">pushed 已推送财务共享</span><span class="arrow-r">—财务共享确认→</span>
-    <span class="st e">confirmed 已确认（可登记回款）</span>
-  </div>
+<h4>③ 筛选区</h4>
+<p>子目号/名称关键词搜索 + 合同下拉筛选（全部主合同）。</p>
 
-  <!-- ================= 4 页面详述 ================= -->
-  <h2 class="sec" id="s4">四、页面功能详述</h2>
+<h4>④ 合同卡片列表</h4>
+<p>每个合同一张卡片行，展示：合同名称（主合同标签）、合同编号、项目部、业主（交投业主/其他业主）、含协同单位完成金额（有则显示）、可计量子目数、<b>可申报计量金额</b>（有未上报量时橙色高亮）、历史已申报计量、有批复计量，右侧操作按钮：<b>展开清单</b> / <b>发起计量</b>。</p>
 
-  <!-- ---------- 4.1 计量数据池 ---------- -->
-  <h3 class="sub" id="s4-1">4.1 计量数据池（/measure/pool）</h3>
+<img class="shot" src="shots/pool.png" alt="计量数据池">
+<p class="shot-cap">图 2-1 计量数据池（主合同页签）：顶部汇总卡、合同卡片与"展开清单/发起计量"操作</p>
 
-  <h4 class="ss">▍功能说明</h4>
-  <ul class="plain">
-    <li>合同列表顶部以 <b>Tab 页签区分「主合同」「协同合同」</b>：<b>主合同</b> = 当前单位为合同签订的主要单位；<b>协同合同</b> = 当前单位为合同协同（参与施工）单位的合同；</li>
-    <li><b>主合同页签</b>：按合同分组（按合同编号排序）展示该主合同下所有<b>已完工未计量</b>的可计量（正式·合同内）子目，其中<b>本组织完成</b>与<b>协同单位完成</b>（由协同合同推送累计）两类来源分列展示、互相区分；根据两部分完成量统一「发起计量」生成计量单；</li>
-    <li><b>协同合同页签</b>：只读查看当前协同合同已完工未计量的量（本组织完成口径），<b>不直接生成计量单</b>；选中子目后可「推送到主合同」，将本组织完成量推送到关联主合同的对应子目下（累计为其协同单位完成量），仅做查看确认与推送；</li>
-    <li>合同下清单<b>默认收起</b>，点击合同行「展开清单」按章节层级展开；主合同行汇总（合同级口径）：<b>可计量子目数 · 可申报计量金额（未上报价值，含协同）· 历史已申报计量 · 有批复计量</b>；协同合同行汇总：<b>协同子目数 · 未推送量价值 · 已推送价值</b>；</li>
-    <li>主合同行可直接「发起计量」进入 3 步向导；子目可「维护 / 删」；支持临时/合同外子目「⇄ 转入正式」参与计量，并留有「转入记录」；协同合同提供「推送记录」追溯历史推送明细。</li>
-  </ul>
+<h4>⑤ 展开清单（子目明细）</h4>
+<p>点击"展开清单"在合同卡片下方展开子目明细表，按<b>章节层级分组</b>（100 总则 / 200 路基 / 300 路面 …），每行展示：子目号、子目名称、单位、综合单价（元）、子目总量、已施工量构成（施工日志报工 / 手动计入产值 / 临时转入 / 协同单位完成）、已上报计量量、<b>未上报计量量</b>、批复计量量。</p>
 
-  <div class="shot"><div class="cap">图 4-1 计量数据池 · 主合同页签（Tab 切换 + 合同分组 + 本组织/协同单位完成区分 + 发起计量）</div>
-    <img src="prd-images/measure-01-pool.png" alt="计量数据池主合同页签截图">
-  </div>
+<h3>2.3 业务口径（方案表）</h3>
+<div class="rule">
+<b>已施工量</b> = 本组织完成（施工日志报工 + 手动计入产值 + 临时转入）+ 协同单位完成（协同合同推送）<br>
+<b>未上报计量量</b> = 已施工量 − 已上报计量量<br>
+<b>未批复计量量</b> = 已上报计量量 − 已批复计量量<br>
+<b>可申报计量金额</b> = Σ（未上报计量量 × 综合单价）
+</div>
 
-  <div class="shot"><div class="cap">图 4-1b 计量数据池 · 协同合同页签（只读查看 + 未推送量 + 「推送到主合同」操作，无发起计量按钮）</div>
-    <img src="prd-images/measure-01b-pool-coop.png" alt="计量数据池协同合同页签截图">
-  </div>
+<h3>2.4 发起计量（三步向导）</h3>
+<p>从合同卡片点击「发起计量」进入向导（计量台账页的「+ 发起计量（向导）」同入口）：</p>
+<table>
+  <tr><th style="width:90px">步骤</th><th>页面内容</th><th>交互与规则</th></tr>
+  <tr>
+    <td><b>Step 1</b><br>选择合同</td>
+    <td>合同列表（仅主合同，含可计量子目数、可申报计量金额）</td>
+    <td>选择一份合同并设定计量时间段（起止日期），进入下一步；已预选合同的入口（如从数据池发起）跳过本步。</td>
+  </tr>
+  <tr>
+    <td><b>Step 2</b><br>选择并调整子目</td>
+    <td>按章节分组的合同清单子目 + 已选计量子目列表</td>
+    <td>① 勾选合同清单子目加入本期计量，添加后<b>默认带入全部未上报计量量</b>（可编辑，不可超已施工量）；② 行内可调整数量与变更金额；③ 新增子目一律从合同清单勾选（"添加其他子目"弹窗）；④ 主合同子目按"本组织完成 + 协同单位完成"合并计量，行上区分来源构成。</td>
+  </tr>
+  <tr>
+    <td><b>Step 3</b><br>预览与确认</td>
+    <td>章节汇总（图一）+ 子目明细（图二）+ 扣款/调整项 + 经办技术员</td>
+    <td>① 章节汇总：按章节合计本期完成金额，含安全生产费单列；② 子目明细：子目号/名称/单位/单价（元）/合同数量/本期完成数量/本期完成金额/到上期末累计；③ 手填扣款项：价格调整、索赔、违约罚款、考核扣款/奖励、迟付款利息、动员预付款及其扣回、材料设备垫付及其扣回、保留金；④ 确认创建生成计量单<b>草稿</b>。</td>
+  </tr>
+</table>
 
-  <h4 class="ss">▍交互说明</h4>
-  <table class="t">
-    <tr><th style="width:180px">交互点</th><th>行为说明</th></tr>
-    <tr><td><b>「主合同 / 协同合同」Tab</b></td><td>顶部页签切换合同列表：主合同页签仅展示当前单位为主要单位的合同，协同合同页签仅展示当前单位为协同单位的合同；切换后汇总卡、筛选区、清单整体联动；支持 <code>?tab=coop</code> URL 参数直达协同页签</td></tr>
-    <tr><td>顶部汇总卡（主合同页签）</td><td>可计量合同（份）/ 可计量子目（项）/ 未上报计量量价值（含协同完成）/ 未批复计量量价值，随筛选实时联动</td></tr>
-    <tr><td>顶部汇总卡（协同页签）</td><td>协同合同（份）/ 协同子目（项）/ 未推送量价值 / 累计已推送价值</td></tr>
-    <tr><td>筛选区</td><td>① 子目号/名称关键字；② 合同下拉（当前页签范围合同）；③「仅看有未计量量」勾选；④ 主合同页签：「⇄ 转入正式」「转入记录」；协同页签：「仅看有未推送量」「推送记录」</td></tr>
-    <tr><td>「展开清单 / 收起清单」</td><td>切换该合同下章节层级子目清单的显示；默认全部收起，状态互相独立</td></tr>
-    <tr><td>「发起计量」（仅主合同行）</td><td>打开发起计量向导弹窗（见 4.1.1），预选该合同、直接进入 Step2；<b>协同合同行不提供发起计量入口</b></td></tr>
-    <tr><td>章节层级行</td><td>按 100/200/300… 章节分组，显示该章子目数、合同价、未上报价值（主合同页签）</td></tr>
-    <tr><td>子目行「维护」</td><td>打开子目编辑弹窗（字段见下表）；「删」需确认，存在已施工量时二次确认；主合同子目的「协同单位完成」由协同推送自动累计，编辑弹窗中只读展示不可修改</td></tr>
-    <tr><td>「⇄ 转入正式」（主合同页签）</td><td>弹窗选择源子目（临时/合同外）与目标子目（正式·合同内）、数量（≤ 已施工量−已转出）、经办人；确认后计入目标子目 transferInQty 并记录日志</td></tr>
-    <tr><td><b>「推送到主合同」（协同页签）</b></td><td>子目行按钮（未推送量 ≤ 0 时置灰）：弹窗展示源子目信息（已完工/已推送/未推送/关联主合同）→ 选择<b>关联主合同下</b>可计量（正式·合同内）子目为目标（同子目号前缀 ★ 默认选中，显示目标「已含协同完成 X」）→ 填写推送数量（默认 = 未推送量，≤ 未推送量）与经办人 → 确认后：源子目 pushedQty 累计、目标子目 coopQty 累计，并写入推送记录</td></tr>
-    <tr><td>「推送记录」（协同页签）</td><td>弹窗按时间倒序展示推送日志：时间 / 协同合同 / 源子目 → 主合同目标子目 / 推送量 / 经办人</td></tr>
-  </table>
+<h2>三、计量台账</h2>
 
-  <h4 class="ss">▍字段说明（合同行 + 清单列）</h4>
-  <table class="t">
-    <tr><th class="c" style="width:150px">字段</th><th>说明</th></tr>
-    <tr><td class="c"><b>合同行（主合同页签）</b></td><td>合同名称、合同编号 · 项目 · 业主（交投·推送批复 / 其他·自闭环）；头部紫色「主合同」徽章；存在协同单位完成量时显示「含协同单位完成 ¥xx」；存在协同单位时展示协同单位名称</td></tr>
-    <tr><td class="c"><b>合同行（协同页签）</b></td><td>合同名称、合同编号 · 项目 · 业主；青蓝色「协同合同」徽章 + 主要单位名称 + 关联主合同编号（可定位主合同）</td></tr>
-    <tr><td class="c">可计量子目</td><td>该合同可计量（正式·合同内）子目数，单位：项（主合同页签）</td></tr>
-    <tr><td class="c">可申报计量金额</td><td>Σ（未上报计量量 × 综合单价），即未上报价值（含协同单位完成部分）</td></tr>
-    <tr><td class="c">历史已申报计量</td><td>Σ（已上报量 × 单价），该合同累计已申报金额</td></tr>
-    <tr><td class="c">有批复计量</td><td>Σ（已批复量 × 单价），该合同累计已批复金额</td></tr>
-    <tr><td class="c">协同子目 / 未推送量价值 / 已推送价值</td><td>协同合同行三指标：协同子目数 / Σ（未推送量 × 单价）/ Σ（已推送量 × 单价）</td></tr>
-    <tr><td class="c">子目号 / 子目名称</td><td>子目号如 <code>302-1-a</code>（安全生产费子目带青色标签）；名称下展示单位与综合单价</td></tr>
-    <tr><td class="c">子目总量</td><td>合同清单数量（totalQty）</td></tr>
-    <tr><td class="c"><b>本组织完成</b></td><td>ownQty = 报工 + 手动 + 转入，下附构成「报工 X / 手动 Y / 转入 Z」小字（主合同页签与协同页签均按此口径）</td></tr>
-    <tr><td class="c"><b>协同单位完成</b></td><td>主合同子目的 coopQty（协同合同推送累计），&gt; 0 时青色高亮并附「协同合同推送」小字；协同合同页签不展示此列</td></tr>
-    <tr><td class="c">已上报 / 未上报计量量</td><td>reportedQty / unreportedQty（橙色加粗，无余量置灰）；主合同页签的未上报计量量 =（本组织完成 + 协同单位完成）− 已上报</td></tr>
-    <tr><td class="c">已批复 / 未批复</td><td>approvedQty / unapprovedQty（琥珀色），主合同页签</td></tr>
-    <tr><td class="c">已推送主合同 / 未推送量</td><td>协同页签子目列：pushedQty（绿色，累计已推送到主合同的量）/ unpushedQty（青色，= 本组织完成 − 已推送，可推送余量）</td></tr>
-    <tr><td class="c">完成批次（时间段）</td><td>批次数 + 最近批次日期与数量（供向导按时间段筛选完成量）</td></tr>
-  </table>
+<h3>3.1 功能定位</h3>
+<p>计量单的全生命周期管理：查看各合同各期计量单，草稿可编辑/提交批复，已驳回可重新编辑，全状态可预览详情。台账状态即计量单的流程状态。</p>
 
-  <h4 class="ss" style="color:var(--violet)">4.1.1 发起计量向导（弹窗 · StatementWizard）</h4>
-  <p><b>三步流程：Step1 选择合同 → Step2 选择并调整子目 → Step3 预览与确认。</b>从合同行进入时跳过 Step1。<b>仅主合同可发起计量</b>（Step1 合同列表只展示主合同，顶部青色提示条：「仅主合同可发起计量；协同合同请在『计量数据池·协同合同』页签推送主合同后，由主合同统一计量」）。</p>
-  <table class="t">
-    <tr><th class="c" style="width:110px">步骤</th><th>交互说明</th></tr>
-    <tr><td class="c"><b>Step1<br>选择合同</b></td><td>主合同卡片单选（带紫色「主合同」徽章 + 含协同完成金额），卡片显示各合同可计量子目数与未上报价值（含协同）；选中后「下一步」</td></tr>
-    <tr><td class="c"><b>Step2<br>选择并调整子目</b></td>
-      ① 顶部设置<b>计量时间段</b>（起/止日期 + 本月快捷，仅作报表口径，不自动重算数量）；<br>
-      ② <b>已选计量子目</b>表：行内可编辑「本期数量 / 变更金额」，金额自动=数量×单价，可移除；数量列下附<b>来源构成小字「本组织 X / 协同 Y」</b>（含协同完成时青色显示）；栏目头部显示共 N 项 · 本期金额合计，超出未上报量的行玫瑰色标记；<br>
-      ③ 栏目头部<b>「+ 添加其他子目」按钮</b>：弹出<b>该合同完整合同清单</b>（按章节分组、支持搜索），未选子目可直接编辑「本期数量」后添加，已选子目显示「已选」徽章并可直接改数量；「已施工」列含构成小字（本组织 X / 协同 Y）；<br>
-      ④ 下方<b>新增子目</b>区：该合同可计量且未选入本期计量单的子目（章节分组 + 搜索 +「+ 添加」），「已施工」列同样显示本组织/协同构成；<br>
-      ⑤ <b>添加子目默认带入全部已施工数量</b>（= 未上报计量量，含协同完成），添加后可编辑（改数量时按比例缩放本组织/协同构成）；自动快照「到上期末累计量/额」作为期初</td></tr>
-    <tr><td class="c"><b>Step3<br>预览与确认</b></td><td>计量支付报表预览（图一章节汇总 + 扣款项<b>可手填</b> + 图二明细只读，明细行显示本组织/协同单位构成）→「确认创建」生成草稿（JL-YYYYMM-NNN，自动期数）</td></tr>
-  </table>
-  <div class="note">校验：至少勾选一行子目；本期数量必须 &gt; 0；允许超出未上报计量量（创建成功后 toast 标记提示，仍按填写数量计入）。<b>来源构成快照</b>：添加子目时按「历史申报优先消耗本组织量」规则拆分本期数量为本组织 / 协同单位两部分（ownQty / coopQty）存入计量行，编辑数量时按比例缩放。</div>
+<h3>3.2 页面结构</h3>
+<h4>① 筛选区</h4>
+<p>计量单编号/合同名称搜索 + 合同下拉 + 状态下拉（草稿 / 待审批 / 已批复 / 已驳回），右侧主操作按钮「+ 发起计量（向导）」。</p>
 
-  <h4 class="ss" style="color:var(--violet)">4.1.2 计量单预览（弹窗 · StatementPreview，工程价款计量支付报表）</h4>
-  <ul class="plain">
-    <li><b>报表头</b>：期数/期间/计量时段、合同名称与编号、业主（批复方）、项目部、批复路径、经办技术员；</li>
-    <li><b>图一 · 章节汇总表</b>：按章节聚合「合同价及变更金额（合同价/变更总金额/变更后金额）· 到本期末完成 · 到上期末完成 · 本期完成」+ 小计 + 价格调整行 + 合计；</li>
-    <li><b>图一底部 · 扣款/调整项</b>（手填，创建后随单存档）：索赔金额、违约罚款、考核扣款、考核奖励(加)、迟付款利息、动员预付款(加)、扣回动员预付款、材料设备垫付款(加)、扣回材料设备垫付款、保留金 → 底部自动计算<b>实际支付金额 = 本期完成合计 + 增加项 − 扣减项</b>；</li>
-    <li><b>图二 · 章节子目明细表</b>：按章节分组，列为项目编号/名称/计量单位/合同数量（单价·数量·金额）/累计完成占合同%/到本期末完成/到上期末完成/本期完成；<b>含协同单位完成的行，项目名称下显示青色小字「本组织 X / 协同单位 Y」</b>；手动新增行有琥珀色底纹标记；</li>
-    <li><b>批复信息</b>（已批复时）：批复金额、扣款、批复时间/意见三卡；<b>签字栏</b>：技术员 / 内部审核 / 监理审核 / 业主批复。</li>
-  </ul>
+<h4>② 计量单列表</h4>
+<table>
+  <tr><th>列</th><th>内容</th></tr>
+  <tr><td>计量单编号 / 期数</td><td>编号（JL-…）、第 N 期、经办人</td></tr>
+  <tr><td>计量时间</td><td>计量单创建时间（精确到分钟）</td></tr>
+  <tr><td>合同</td><td>合同名称、合同编号、项目部</td></tr>
+  <tr><td>业主</td><td>业主名称 + 业主类型标签（交投业主/其他业主）</td></tr>
+  <tr><td>明细行</td><td>子目明细行数</td></tr>
+  <tr><td>本期申报(元)</td><td>本期完成金额合计</td></tr>
+  <tr><td>状态</td><td><span class="pill p-draft">草稿</span><span class="pill p-wait">待审批</span><span class="pill p-ok">已批复</span><span class="pill p-rej">已驳回</span></td></tr>
+  <tr><td>操作</td><td>按状态显示（见 3.3）</td></tr>
+</table>
 
-  <!-- ---------- 4.2 计量台账 ---------- -->
-  <h3 class="sub" id="s4-2">4.2 计量台账（/measure/statement）</h3>
+<img class="shot" src="shots/statement.png" alt="计量台账">
+<p class="shot-cap">图 3-1 计量台账：筛选区 + 列表（计量时间 = 创建时间；状态：草稿/待审批/已批复/已驳回）</p>
 
-  <h4 class="ss">▍功能说明</h4>
-  <p>计量单（按合同 + 期间）的全生命周期管理：新建（向导）、编辑草稿、提交批复、重新编辑（驳回后）、预览报表、删除草稿。</p>
+<h3>3.3 交互与状态规则</h3>
+<table>
+  <tr><th>状态</th><th>可执行操作</th><th>流转说明</th></tr>
+  <tr><td>草稿</td><td>编辑（回导向导 Step2）、提交批复、删除、预览</td><td>提交批复后状态变为<b>待审批</b>，同时数据池子目的"已上报计量量"回写增加</td></tr>
+  <tr><td>待审批</td><td>预览</td><td>进入批复管理维护批复；批复通过 → <b>已批复</b>；驳回 → <b>已驳回</b></td></tr>
+  <tr><td>已批复</td><td>预览</td><td>终态；批复结果（批复数量/批复金额/附件）见批复管理，凭证自动生成</td></tr>
+  <tr><td>已驳回</td><td>重新编辑、删除、预览</td><td>重新编辑回向导调整后可再次提交；被驳回单据占用的上报量<b>自动释放</b>回数据池</td></tr>
+</table>
+<p>「预览」打开计量单详情弹窗：单据头（合同/业主/批复方式：系统内维护批复/经办技术员）+ 章节汇总 + 子目明细 + 扣款项。</p>
 
-  <div class="shot"><div class="cap">图 4-2 计量台账（汇总卡 + 筛选 + 计量单列表）</div>
-    <img src="prd-images/measure-02-statement.png" alt="计量台账页面截图">
-  </div>
+<h2>四、批复管理</h2>
 
-  <h4 class="ss">▍交互说明</h4>
-  <table class="t">
-    <tr><th style="width:180px">交互点</th><th>行为说明</th></tr>
-    <tr><td>「+ 发起计量（向导）」</td><td>打开 3 步创建向导（见 4.1.1）</td></tr>
-    <tr><td>「编辑」（草稿）</td><td>重新打开向导（Step2 起，可回退调整）；非草稿点击会提示「仅草稿状态可编辑」</td></tr>
-    <tr><td>「提交批复」（草稿）</td><td>校验通过后：状态 → submitted，<b>回写数据池已上报量</b>；toast「数据池已上报量已回写」</td></tr>
-    <tr><td>「重新编辑」（已驳回）</td><td>状态 → draft，<b>释放数据池上报量</b>，修改后可重新提交</td></tr>
-    <tr><td>「预览」/ 点击编号</td><td>打开计量单预览弹窗（见 4.1.2）；预览弹窗底部草稿状态可直接「提交批复」</td></tr>
-    <tr><td>「删」（草稿）</td><td>确认后删除，仅草稿状态可删</td></tr>
-  </table>
+<h3>4.1 功能定位</h3>
+<p>对已申报（待审批）的计量单统一在系统内维护业主批复：可逐行调整<b>计量批复数量</b>、维护<b>最终批复金额</b>与批复意见、上传批复附件；驳回则释放上报量退回台账重新编辑。页面仅展示待批复计量单（已批复/已驳回结果在计量台账与计量单管理中查看）。</p>
 
-  <h4 class="ss">▍字段说明（列表列）</h4>
-  <table class="t">
-    <tr><th class="c" style="width:170px">列</th><th>说明</th></tr>
-    <tr><td class="c">计量单编号 / 期数</td><td class="k">JL-202608-001；第 N 期 · 经办人</td></tr>
-    <tr><td class="c">计量期间 / 时段</td><td>YYYY-MM 期间；起止日期（periodStart ~ periodEnd）</td></tr>
-    <tr><td class="c">合同</td><td>合同名称 + 编号 · 项目</td></tr>
-    <tr><td class="c">业主 / 批复路径</td><td>业主名 + 标签（交投·推送批复 / 其他·自闭环）</td></tr>
-    <tr><td class="c">明细行 / 本期申报</td><td>子目行数；totalAmount（其中安全生产费单列）</td></tr>
-    <tr><td class="c">实际支付(元)</td><td>netPayableOf：本期完成合计 + 增加项 − 扣减项</td></tr>
-    <tr><td class="c">批复金额(元)</td><td>approvedAmount；下方红字显示扣款（申报−批复）</td></tr>
-    <tr><td class="c">状态</td><td>草稿 / 已申报·待批复 / 批复中(交投) / 已批复 / 已驳回</td></tr>
-  </table>
-  <p style="font-size:12.5px;color:var(--slate-500)">汇总卡：计量单数量（期）· 待批复（submitted+approving）· 累计申报金额 · 累计实际支付（含扣款调整）。</p>
+<h3>4.2 页面结构</h3>
+<h4>① 筛选区</h4>
+<p>业主类型下拉 + 状态下拉（已申报·待批复 / 批复中）。</p>
+<h4>② 待批复计量单列表</h4>
+<table>
+  <tr><th>列</th><th>内容</th></tr>
+  <tr><td>台账编号</td><td>编号、所属期间、第 N 期、项目部</td></tr>
+  <tr><td>合同 / 业主</td><td>合同名称 + 业主名称</td></tr>
+  <tr><td>审批链</td><td>内审 ✓ → 监理 ✓ → 业主批复中</td></tr>
+  <tr><td>申报金额(元)</td><td>本期申报金额</td></tr>
+  <tr><td>明细行数 / 状态 / 操作</td><td>行数、状态标签、<b>维护批复</b>按钮</td></tr>
+</table>
+<p>点击行或「维护批复」按钮打开维护批复弹窗。</p>
 
-  <!-- ---------- 4.3 批复管理 ---------- -->
-  <h3 class="sub" id="s4-3">4.3 批复管理（/measure/approval）</h3>
+<img class="shot" src="shots/approval.png" alt="批复管理">
+<p class="shot-cap">图 4-1 批复管理：仅待批复计量单，全部在系统内维护计量批复（不再推送交投）</p>
 
-  <h4 class="ss">▍功能说明</h4>
-  <ul class="plain">
-    <li><b>交投业主</b>：「推送交投批复」→ 状态 approving →「批复回传」录入批复金额 → 自动比对申报/批复差异识别扣款、回写数据池已批复量、<b>自动生成计量凭证</b>；</li>
-    <li><b>其他业主</b>：「自闭环批复」弹窗直接批复通过（可调整金额）或驳回（必填原因）；</li>
-    <li>下半区「批复历史与扣款对比」：申报 vs 批复、扣款、对比结论（申报=批复 / 扣减 XX / 已驳回）。</li>
-  </ul>
+<h3>4.3 维护批复弹窗</h3>
+<h4>① 清单明细（可编辑）</h4>
+<table>
+  <tr><th>列</th><th>说明</th></tr>
+  <tr><td>章节 / 子目 / 单位</td><td>只读</td></tr>
+  <tr><td>单价</td><td>综合单价（元）</td></tr>
+  <tr><td>计量数量</td><td>本期申报数量（只读）</td></tr>
+  <tr><td><b>计量批复数量</b></td><td>可编辑输入框，<b>默认 = 计量数量</b>，可逐行调整（不可超计量数量）；调整后该行批复金额自动 = 批复数量 × 单价</td></tr>
+  <tr><td>批复金额</td><td>行级批复金额（自动计算，只读）</td></tr>
+</table>
+<h4>② 批复汇总与意见</h4>
+<ul>
+  <li><b>最终批复金额</b>：默认 = 行批复合计 + 扣款净额；调整批复数量时自动联动；也可手动修改（不可超过 扣款前合计）。</li>
+  <li><b>批复意见</b>：文本填写。</li>
+  <li><b>批复附件</b>：可添加/移除多个附件（批复文件清单）。</li>
+</ul>
+<h4>③ 底部操作</h4>
+<p><b>驳回</b>（直接驳回，单据回已驳回状态）/ <b>取消</b> / <b>确认批复</b>。</p>
 
-  <div class="shot"><div class="cap">图 4-3 批复管理（待批复台账 + 批复历史与扣款对比）</div>
-    <img src="prd-images/measure-03-approval.png" alt="批复管理页面截图">
-  </div>
+<h3>4.4 批复业务规则</h3>
+<div class="rule">
+<b>确认批复后：</b>① 计量单状态 → 已批复，记录批复时间；② 自动生成对应<b>计量凭证</b>（凭证行按"申报量/批复量"双口径展示）；③ 数据池子目按<b>行级批复数量</b>累计"已批复计量量"；④ 扣款金额 = 申报金额 − 最终批复金额，写入计量单与凭证；⑤ 附件与批复意见随单据留存，可在详情中查看。<br>
+<b>驳回后：</b>计量单回"已驳回"，占用的上报量释放，台账可重新编辑再次提交。
+</div>
 
-  <h4 class="ss">▍交互说明</h4>
-  <table class="t">
-    <tr><th style="width:200px">交互点</th><th>行为说明</th></tr>
-    <tr><td>「推送交投批复」<br>(交投 · submitted)</td><td>推送交投养护管理平台，状态 → approving（批复中），等待结果回传</td></tr>
-    <tr><td>「批复回传」<br>(交投 · approving)</td><td>弹窗「交投批复结果回传」：默认批复金额=实际支付金额；确认后 approved，自动生成扣款对比与计量凭证</td></tr>
-    <tr><td>「自闭环批复」<br>(其他 · submitted)</td><td>弹窗「自闭环批复」：可「批复通过」（金额可调整）或「驳回」（原因必填）；通过后自动生成计量凭证，驳回则释放数据池上报量、状态 → rejected</td></tr>
-  </table>
+<h2>五、计量单管理</h2>
 
-  <h4 class="ss">▍批复弹窗字段</h4>
-  <table class="t">
-    <tr><th class="c" style="width:190px">字段</th><th class="c" style="width:70px">必填</th><th>说明</th></tr>
-    <tr><td class="c">申报摘要（只读）</td><td class="c">—</td><td>申报台账编号、合同/期间/期数、本期申报金额、明细行数（含安全生产费金额）</td></tr>
-    <tr><td class="c">批复金额(元)</td><td class="c">是</td><td>默认 netPayableOf；≤ 申报金额，差额实时提示「将识别扣款：XX」</td></tr>
-    <tr><td class="c">批复意见 / 扣款说明</td><td class="c">否</td><td>如「现场复核扣减 XX 元（厚度不足）」</td></tr>
-    <tr><td class="c">驳回原因</td><td class="c">驳回时必填</td><td>仅其他业主自闭环显示；驳回后台账可重新编辑申报</td></tr>
-  </table>
-  <p style="font-size:12.5px;color:var(--slate-500)">汇总卡：待批复（交投推送）期数 · 待批复（其他自闭环）期数 · 本期待批金额 · 历史累计扣款。列表「审批链」列固定展示：内审 ✓ → 监理 ✓ → 业主批复中。</p>
+<h3>5.1 功能定位</h3>
+<p>以<b>合同为维度</b>分组查看已申报（待审批）与已批复的计量单，是计量结果的业务视图；点击计量单查看详情；<b>仅已批复的计量单可生成应收单</b>，进入应收流程。本页面不提供归档操作。</p>
 
-  <!-- ---------- 4.4 计量单管理 ---------- -->
-  <h3 class="sub" id="s4-4">4.4 计量单管理（/measure/order）</h3>
+<h3>5.2 页面结构与交互</h3>
+<h4>① 筛选区</h4>
+<p>计量单编号/合同名称搜索 + 业主下拉 + 状态下拉（待审批 / 已批复）。</p>
+<h4>② 合同分组列表（核心交互）</h4>
+<ul>
+  <li>每个合同一张分组卡片，头部展示：合同名称、编号、项目部、业主（交投/其他标签）、<b>N 张计量单（其中已批复 M 张）</b>、累计申报金额、累计批复金额。</li>
+  <li>点击合同头部可<b>展开/收起</b>该合同下的计量单列表（默认展开）。</li>
+  <li>合同下计量单行：序号、编号/期数/经办、计量时间（创建时间）、明细行数、申报金额(元)、批复金额(元)（待审批显示"—"）、状态（<span class="pill p-wait">待审批</span><span class="pill p-ok">已批复</span>）。</li>
+  <li>行操作：<b>详情</b>（全部）；<b>生成应收单</b>（仅已批复显示）。</li>
+</ul>
 
-  <h4 class="ss">▍功能说明</h4>
-  <p>计量凭证在<b>批复通过后自动生成</b>（与计量台账一一对应，编号 <code>JLD-YYYYMM-NNN</code>），固化申报量/批复量/扣款对比，是应收单填报与推送的依据；状态：生效 → 已归档（结算依据留存）。</p>
+<img class="shot" src="shots/order.png" alt="计量单管理">
+<p class="shot-cap">图 5-1 计量单管理：按合同分组展开计量单；已批复行显示"生成应收单"按钮</p>
 
-  <div class="shot"><div class="cap">图 4-4 计量单管理（计量凭证列表）</div>
-    <img src="prd-images/measure-04-order.png" alt="计量单管理页面截图">
-  </div>
+<h4>③ 计量单详情弹窗</h4>
+<p>点击行或「详情」打开：单据头信息 + 章节汇总 + 子目明细 + 扣款项；弹窗底部操作：已批复单据显示<b>生成应收单</b> + 关闭，其余仅关闭。</p>
 
-  <h4 class="ss">▍交互说明</h4>
-  <table class="t">
-    <tr><th style="width:180px">交互点</th><th>行为说明</th></tr>
-    <tr><td>「查看」/ 点击计量单号</td><td>详情弹窗：基本信息（对应台账/期间/批复时间/合同/项目部/业主/批复路径/状态）+ 申报/批复/扣款三金额卡 + 计量明细（子目号/名称/单位/单价/<b>申报量 vs 批复量</b>/申报金额 vs 批复金额）</td></tr>
-    <tr><td>「生成应收单」</td><td>按合同 1:1 生成应收单（金额=批复金额），生成后进入应收流程；重复生成会校验拦截</td></tr>
-    <tr><td>「归档」（生效）</td><td>确认后归档，「归档后进入结算依据留存」</td></tr>
-  </table>
-  <p style="font-size:12.5px;color:var(--slate-500)">汇总卡：计量单数量（张）· 累计批复金额 · 累计扣款 · 已归档（张）。筛选：计量单号/台账号/合同名称、业主路径（交投/其他业主）、状态（生效/已归档）。</p>
+<h3>5.3 生成应收单规则</h3>
+<div class="flow">
+仅<b>已批复</b>的计量单可操作；点击后按该计量单批复金额预填应收单，进入应收单创建流程（见第六章）。生成后应收单与合同对应，同一合同的多张已批复计量单支持合并填报。
+</div>
 
-  <!-- ---------- 4.5 应收单 ---------- -->
-  <h3 class="sub" id="s4-5">4.5 应收单（/measure/receivable）</h3>
+<h2>六、应收单</h2>
 
-  <h4 class="ss">▍功能说明</h4>
-  <ul class="plain">
-    <li>通过「+ 创建应收单」两步向导生成：<b>第 1 步下拉选择合同并在下方勾选计量单</b>（仅已批复且未创建应收单的可选，同合同多张可合并）→ <b>第 2 步按交工计量系统「工程结算应收单」样式填报</b>；</li>
-    <li>应收单<b>按合同一一对应（1 合同 : 1 应收单）</b>，编号 <code>YSD-YYYYMM-NNN</code>，系统单据编号 <code>JLGL-YSDN-YYYYMMDDHHmmNNN</code>；</li>
-    <li>应收金额 = 本期可收金额（含税）= 本期计量金额 + 变更 + 材料调差 − 罚款 − 应扣预付款 − 应扣待付扣回 − 其他预付款扣回 + 保证金（负数扣留）；</li>
-    <li>状态流转：待推送 → 已推送财务共享（经交工计量系统填报推送）→ 财务共享已确认（进入回款跟踪）；</li>
-    <li>项目部维度汇总视图在养护平台内完成，不依赖交工计量系统。</li>
-  </ul>
+<h3>6.1 功能定位</h3>
+<p>承载"本期应向业主收取的工程款"：依据已批复计量单填报工程结算应收单，推送交投财务共享确认；确认后进入回款跟踪。应收单按合同一一对应（支持同合同多张已批复计量单合并填报）。</p>
 
-  <div class="shot"><div class="cap">图 4-5 应收单（列表 + 创建应收单入口）</div>
-    <img src="prd-images/measure-05-receivable.png" alt="应收单页面截图">
-  </div>
+<h3>6.2 页面结构</h3>
+<h4>① 筛选区</h4>
+<p>应收单号/计量单号/合同名称搜索 + 状态下拉，右侧「+ 创建应收单」按钮（向导入口）。</p>
+<h4>② 应收单列表</h4>
+<table>
+  <tr><th>列</th><th>内容</th></tr>
+  <tr><td>应收单号 / 在册单据编号</td><td>YSD-… 编号 + 在册编号</td></tr>
+  <tr><td>对应计量单 / 期间</td><td>关联计量凭证编号与期间</td></tr>
+  <tr><td>合同（1:1）</td><td>合同名称、编号、项目部</td></tr>
+  <tr><td>业主</td><td>业主名称 + 类型标签</td></tr>
+  <tr><td>本期应收金额(元)</td><td>本期可收金额（含税）</td></tr>
+  <tr><td>已回款(元)</td><td>该单累计已回款</td></tr>
+  <tr><td>状态</td><td>待填报 → 已推送财务共享 → 财务共享已确认</td></tr>
+  <tr><td>推送 / 确认时间</td><td>流程时间戳</td></tr>
+  <tr><td>操作</td><td>待填报：推送 / 编辑 / 删除；已推送：财务共享确认；全部：详情</td></tr>
+</table>
 
-  <h4 class="ss">▍交互说明</h4>
-  <table class="t">
-    <tr><th style="width:200px">交互点</th><th>行为说明</th></tr>
-    <tr><td>「+ 创建应收单」<br>第 1 步 · 选择合同与计量单</td><td>
-      合同通过<b>下拉选择</b>（仅主合同，选项中标注「可选计量单 N 张 / 批复金额」）；选中后下方展示该合同下的计量单列表，支持按计量单号搜索；<br>
-      仅<b>已批复且未创建应收单</b>的计量单可勾选（可多选合并），未批复（红字「未批复，不可选」）/ 已占用（灰显「已创建应收单，不可选」）行禁选；<br>
-      顶部信息条实时显示业主、项目部与「已选 N 张 · 本期计量金额合计」；未勾选任何计量单时「下一步」按钮禁用
-    </td></tr>
-    <tr><td>第 2 步 · 填报应收单</td><td>
-      大弹窗（宽 72vw / 高 90vh 内滚动）按「工程结算应收单」样式分区填报（带 * 必填）：基本信息 / 应收信息 / 保证金明细 / 开票明细 / 发票其他信息 / 收款计划 / 附件；<br>
-      组织、合同、客户按所选合同自动带入，计量金额按所选计量单自动汇总（详见下方字段说明）；「上一步」可返回重选，校验通过后「确认创建应收单」
-    </td></tr>
-    <tr><td>「推送」（待推送）</td><td>经交工计量系统应收单功能填报并推送交投财务共享，记录 pushedAt，状态 → pushed</td></tr>
-    <tr><td>「财务共享确认」（已推送）</td><td>确认后记录 confirmedAt，状态 → confirmed，可在回款跟踪登记回款</td></tr>
-    <tr><td>「详情」/ 点击应收单号</td><td>弹窗：8 项基本信息、「工程结算应收单填报信息」区块（系统/在册单据编号、金额口径、保证金/开票/收款计划/附件明细）、应收金额（含税）、已回款/未回款卡、备注（可编辑保存）；底部按钮随状态显示「推送财务共享 / 财务共享确认」</td></tr>
-  </table>
-  <p style="font-size:12.5px;color:var(--slate-500)">汇总卡：应收单数量（张）· 待推送（张）· 累计应收金额 · 累计回款。筛选：应收单号/计量单号/合同名称、状态（待推送/已推送财务共享/财务共享已确认）。</p>
+<img class="shot" src="shots/receivable.png" alt="应收单">
+<p class="shot-cap">图 6-1 应收单：列表与"财务共享确认"操作；右上角"+ 创建应收单"</p>
 
-  <div class="shot"><div class="cap">图 4-5b 创建应收单 · 第 1 步（下拉选择合同 + 计量单列表）</div>
-    <img src="prd-images/measure-05b-receivable-wiz1.png" alt="创建应收单向导第1步截图">
-  </div>
-  <div class="shot"><div class="cap">图 4-5c 创建应收单 · 第 2 步（工程结算应收单填报，字段按交工计量系统样式）</div>
-    <img src="prd-images/measure-05c-receivable-wiz2.png" alt="创建应收单向导第2步截图">
-  </div>
+<h3>6.3 创建应收单（向导）</h3>
+<p>入口：本页「+ 创建应收单」或计量单管理「生成应收单」（预填关联计量单）。向导步骤：</p>
+<ol>
+  <li><b>选择计量单</b>：勾选同合同下已批复的计量单（支持多张合并），本期计量金额 = 所选计量单批复金额合计。</li>
+  <li><b>填报工程结算应收单</b>：按交工计量系统单据样式填写——单据日期、业务日期、系统单据编号（自动）、在册单据编号、部门、结算组织、申请开票组织、入账组织、收款组织、业务内容（工程款）、账龄起算日、是否收票、收款人、结算币别（CNY）等。</li>
+  <li><b>确认创建</b>：生成"待填报"应收单。</li>
+</ol>
 
-  <h4 class="ss">▍创建应收单弹窗字段（第 2 步 · 工程结算应收单）</h4>
-  <table class="t">
-    <tr><th style="width:150px">区块</th><th>字段（带 * 必填）</th></tr>
-    <tr>
-      <td>基本信息</td>
-      <td>单据类型*（工程结算应收单）、资金流向*（收款）、是否有合同*（是）、合同*、客户*（往来类型：客户）、结算组织*、申请开票组织*、入账组织*、收款组织*、单据日期*、业务日期*、在册单据编号*（YS-…）、部门*、业务内容*（工程款）、是否收票*、账龄起算日、收款人 —— 组织/合同/客户按所选合同自动带入
-      </td>
-    </tr>
-    <tr>
-      <td>应收信息</td>
-      <td>本期计量金额*（自动 = 所选计量单批复金额合计）、上期末累计计量金额、到本期末累计计量金额、本期变更、本期材料调差、本期罚款、本期应扣预付款、本期应扣待付扣回、本期其他预付款扣回、本期保证金（明细合计，负数扣留）、本期开票金额*、本期可收金额*（自动汇总）、结算批次*（第 N 期）、结算币别*（CNY）、多币别（否）
-      </td>
-    </tr>
-    <tr>
-      <td>保证金明细</td>
-      <td>行：保证金类型（履约/质量/农民工工资/联合体方工程款/其他）、保证金金额（负数表示扣留）、是否立即开票、说明；可增删行，合计计入本期保证金
-      </td>
-    </tr>
-    <tr>
-      <td>开票明细</td>
-      <td>是否微调*（是/否）；行：开票名称、税收分类（工程服务/建筑服务/劳务费/材料销售）、本期开票金额、<b>已开票金额</b>、未开票金额（自动 = 本期开票 − 已开票）、开票税率（9%/6%/3%/13%）、开票税额（自动价税分离：不含税 = 金额 ÷（1+税率））、不含税金额；可增删行
-      </td>
-    </tr>
-    <tr>
-      <td>发票其他信息</td>
-      <td>工程发票名称、发票类型（数电票专票/普票、增值税专票/普票）、电子发票发票邮箱、电子发票收票电话、货种、发票备注信息
-      </td>
-    </tr>
-    <tr>
-      <td>收款计划</td>
-      <td>行：<b>合同</b>（自动带入所选合同）、约定收款日期、约定收款条件（民工工资专款/计量批复后30天/60天/竣工结算支付/质保期满支付）、应收金额、收入项目、<b>保证金类型</b>（下拉）、<b>已结算金额</b>、<b>结算方式</b>（电汇/银行承兑/商业承兑/支票/现金/其他）；可增删行
-      </td>
-    </tr>
-    <tr>
-      <td>附件</td>
-      <td>登记随单附件文件名（如开票申请、民工工资说明等），可添加/删除
-      </td>
-    </tr>
-  </table>
-  <p style="font-size:12.5px;color:var(--slate-500)">校验：单据日期/业务日期/在册单据编号/部门/业务内容必填；本期开票金额 &gt; 0；所选计量单须已批复、未创建应收单且属同一合同。</p>
+<h3>6.4 状态与流程规则</h3>
+<table>
+  <tr><th>状态</th><th>可执行操作</th><th>说明</th></tr>
+  <tr><td>待填报</td><td>推送、编辑、删除、详情</td><td>推送后状态 → 已推送财务共享，记录推送时间</td></tr>
+  <tr><td>已推送财务共享</td><td>财务共享确认、详情</td><td>模拟交投财务共享回传确认；确认后 → 财务共享已确认，进入回款跟踪</td></tr>
+  <tr><td>财务共享已确认</td><td>详情</td><td>回款跟踪页可对该单登记/新增回款</td></tr>
+</table>
+<div class="warn">
+<b>链路说明：</b>2026-11 交投关闭直连口子后，"工程结算应收单 → 交投财务共享"成为养护应收的唯一通道；财务共享确认后进入回款跟踪。
+</div>
 
-  <!-- ---------- 4.6 回款跟踪 ---------- -->
-  <h3 class="sub" id="s4-6">4.6 回款跟踪（/measure/payment）</h3>
+<h2>七、回款跟踪</h2>
 
-  <h4 class="ss">▍功能说明</h4>
-  <ul class="plain">
-    <li>按应收单跟踪回款：应收金额 / 已回款 / 未回款 / 回款率；支持<b>一单多笔部分回款</b>，累计回款不可超出应收金额；</li>
-    <li><b>项目部汇总视图</b>（1 项目部 : N 收入合同）：涉及合同数、累计应收、累计回款、未回款、回款率；</li>
-    <li>「计量—回款对比台账」：已结清行绿色底纹，未回款玫瑰色加粗。</li>
-  </ul>
+<h3>7.1 功能定位</h3>
+<p>跟踪财务共享已确认应收单的回款进展：登记回款、维护回款流水，形成"计量-回款"对比台账，支持一单多笔部分回款。</p>
 
-  <div class="shot"><div class="cap">图 4-6 回款跟踪（项目部汇总 + 计量—回款对比台账）</div>
-    <img src="prd-images/measure-06-payment.png" alt="回款跟踪页面截图">
-  </div>
+<h3>7.2 页面结构（自上而下）</h3>
+<h4>① 顶部统计卡片</h4>
+<p>累计应收金额 / 累计已回款 / 未回款余额 / 整体回款率（进度条可视化）。</p>
+<h4>② 项目部汇总视图</h4>
+<p>按项目部汇总：项目部、涉及合同数、累计应收(元)、累计回款(元)、未回款(元)、回款率（进度条）。</p>
+<h4>③ 筛选区</h4>
+<p>应收单号/合同/业主搜索 + 项目部下拉 + 应收单下拉。</p>
+<h4>④ 计量-回款对比台账</h4>
+<table>
+  <tr><th>列</th><th>内容</th></tr>
+  <tr><td>应收单号 / 计量单</td><td>应收单编号 + 关联计量凭证与期间</td></tr>
+  <tr><td>合同 / 业主</td><td>合同名称、编号、项目部；业主名称</td></tr>
+  <tr><td>应收金额(元) / 已回款(元) / 未回款(元)</td><td>金额三列，未回款红色突出</td></tr>
+  <tr><td>回款率</td><td>进度条 + 百分比</td></tr>
+  <tr><td>状态</td><td>应收单流程状态</td></tr>
+  <tr><td>操作</td><td><b>登记回款</b>（仅财务共享已确认）、<b>回款流水</b>（全部）</td></tr>
+</table>
 
-  <h4 class="ss">▍交互说明</h4>
-  <table class="t">
-    <tr><th style="width:200px">交互点</th><th>行为说明</th></tr>
-    <tr><td>「登记回款」<br>(已确认 & 未结清)</td><td>弹窗默认带入未回款余额为本次金额；校验不超余额（超出红字提示）；确认后生成回款流水 <code>HK-YYYYMM-NNN</code></td></tr>
-    <tr><td>「回款流水」</td><td>弹窗：应收/已回款/未回款三金额卡 + 流水表（回款单号/日期/方式/金额/备注）；已确认状态底部可「+ 登记回款」</td></tr>
-    <tr><td>筛选区</td><td>应收单号/合同/业主关键字、项目部下拉、「仅未结清」</td></tr>
-  </table>
+<img class="shot" src="shots/payment.png" alt="回款跟踪">
+<p class="shot-cap">图 7-1 回款跟踪：统计卡 + 项目部汇总 + 计量-回款对比台账</p>
 
-  <h4 class="ss">▍登记回款弹窗字段</h4>
-  <table class="t">
-    <tr><th class="c" style="width:160px">字段</th><th class="c" style="width:60px">必填</th><th>说明</th></tr>
-    <tr><td class="c">本次回款金额(元)</td><td class="c">是</td><td>默认=未回款余额；超出余额时红字「超出未回款余额」并拦截保存</td></tr>
-    <tr><td class="c">回款日期</td><td class="c">是</td><td>默认当天</td></tr>
-    <tr><td class="c">回款方式</td><td class="c">否</td><td>电汇（默认）/ 承兑汇票 / 支票</td></tr>
-    <tr><td class="c">备注</td><td class="c">否</td><td>自由文本</td></tr>
-  </table>
+<h3>7.3 回款流水弹窗（含手动新增）</h3>
+<p>点击「回款流水」打开该应收单的回款流水弹窗：</p>
+<ul>
+  <li><b>金额概览</b>：应收 / 已回款 / 未回款 三张金额卡。</li>
+  <li><b>新增回款</b>（仅"财务共享已确认"且未结清时显示「+ 新增回款」）：点击展开内嵌表单——
+    <ul>
+      <li>本次回款金额(元)：默认 = 未回款余额，超出余额时红字提示；</li>
+      <li>回款日期：默认当天；</li>
+      <li>回款方式：电汇 / 承兑汇票 / 支票；</li>
+      <li>备注。</li>
+    </ul>
+    点击「确认新增」落库，流水列表即时刷新；「取消」收起表单。</li>
+  <li><b>流水列表</b>：流水编号、回款日期、金额(元)、方式、备注；无流水时显示空态。</li>
+</ul>
+<p>列表行「登记回款」为独立入口，打开登记回款弹窗录入单笔回款（字段同上）。</p>
 
-  <!-- ================= 5 数据字典 ================= -->
-  <h2 class="sec" id="s5">五、数据字典（实体与字段说明）</h2>
+<h3>7.4 回款业务规则</h3>
+<div class="rule">
+① 仅「财务共享已确认」的应收单可登记/新增回款；<br>
+② 支持一单多笔部分回款，<b>累计回款不可超出应收金额</b>（超出时拦截并提示）；<br>
+③ 回款确认后自动更新已回款/未回款/回款率，形成计量-回款对比台账与流水记录（编号 HK-…）。
+</div>
 
-  <h3 class="sub">5.1 计量数据池子目 MeasurePoolItem</h3>
-  <table class="t">
-    <tr><th class="k" style="width:170px">字段</th><th class="c" style="width:90px">类型</th><th>说明</th></tr>
-    <tr><td class="k">code / name / unit / price</td><td class="c">string/number</td><td>子目号（前缀数字即章节）/ 名称 / 单位 / 综合单价(元)</td></tr>
-    <tr><td class="k">listType</td><td class="c">'formal'|'temp'</td><td>清单类型：正式 / 临时</td></tr>
-    <tr><td class="k">contractAttr</td><td class="c">'in'|'out'</td><td>合同属性：合同内 / 合同外；<b>formal+in 才可计量</b></td></tr>
-    <tr><td class="k">isSafeFee</td><td class="c">boolean?</td><td>安全生产费子目标记（并入数据池计量）</td></tr>
-    <tr><td class="k">totalQty</td><td class="c">number?</td><td>子目总量（合同数量）</td></tr>
-    <tr><td class="k">logQty / manualQty / transferInQty</td><td class="c">number</td><td>已施工量三构成：日志报工 / 手动产值 / 临时转入</td></tr>
-    <tr><td class="k">completionBatches[]</td><td class="c">{date,qty,source}</td><td>完成批次（source：log/manual/transfer），供时间段筛选</td></tr>
-    <tr><td class="k">transferredQty</td><td class="c">number</td><td>临时/合同外子目已转出到正式清单的量</td></tr>
-    <tr><td class="k">coopQty</td><td class="c">number?</td><td><b>主合同子目</b>：协同单位完成量（协同合同推送自动累计，只读）</td></tr>
-    <tr><td class="k">pushedQty</td><td class="c">number?</td><td><b>协同合同子目</b>：已推送到关联主合同的量</td></tr>
-    <tr><td class="k">reportedQty / approvedQty</td><td class="c">number</td><td>已上报计量量 / 已批复计量量（计量链路回写）</td></tr>
-    <tr><td class="k">subcontractQty / remark</td><td class="c">number / string</td><td>分包结算量 / 备注</td></tr>
-  </table>
+<h2>八、附录：状态流转与编号规则</h2>
 
-  <h3 class="sub">5.2 计量单 MeasureStatement 及明细行</h3>
-  <table class="t">
-    <tr><th class="k" style="width:170px">字段</th><th class="c" style="width:90px">类型</th><th>说明</th></tr>
-    <tr><td class="k">code</td><td class="c">string</td><td>JL-202608-001（期间+流水号）</td></tr>
-    <tr><td class="k">period / periodNo / periodStart / periodEnd</td><td class="c">string/number</td><td>计量期间 YYYY-MM / 第 N 期 / 时段起止</td></tr>
-    <tr><td class="k">ownerType / ownerName</td><td class="c">枚举/string</td><td>jtou（交投·推送批复）/ other（其他·自闭环）；业主名</td></tr>
-    <tr><td class="k">lines[]</td><td class="c">MeasureStatementLine[]</td><td>本期计量明细行（见下）</td></tr>
-    <tr><td class="k">totalAmount / safeFeeAmount</td><td class="c">number</td><td>本期完成金额合计 / 其中安全生产费</td></tr>
-    <tr><td class="k">deductions</td><td class="c">StatementDeductions</td><td>扣款/调整手填项（见 4.1.2）</td></tr>
-    <tr><td class="k">status</td><td class="c">枚举</td><td>draft / submitted / approving / approved / rejected</td></tr>
-    <tr><td class="k">approvedAmount / deduction</td><td class="c">number?</td><td>批复金额 / 扣款（申报−批复）</td></tr>
-    <tr><td class="k">rejectReason / approveOpinion</td><td class="c">string?</td><td>驳回原因 / 批复意见</td></tr>
-    <tr><td class="k">submittedAt / pushedAt / approvedAt</td><td class="c">string?</td><td>提交 / 推送交投 / 批复时间</td></tr>
-    <tr><td class="k">handler / remark</td><td class="c">string</td><td>经办技术员 / 备注</td></tr>
-  </table>
-  <p style="font-size:13px"><b>明细行 MeasureStatementLine：</b><span class="k">poolItemId</span>（关联数据池子目）、<span class="k">chapter/code/name/unit/price</span>、<span class="k">contractQty</span>（合同数量）、<span class="k">changeAmount</span>（变更金额·手填）、<span class="k">qty/amount</span>（本期完成数量/金额=qty×price）、<span class="k">ownQty / coopQty</span>（<b>来源构成快照</b>：本期数量中本组织完成 / 协同单位完成，编辑数量按比例缩放）、<span class="k">prevCumQty/prevCumAmount</span>（到上期末累计快照）、<span class="k">isSafeFee</span>、<span class="k">manual</span>（手动新增行标记）。</p>
+<h3>8.1 计量单状态流转</h3>
+<div class="flow">
+<b>草稿</b>（向导确认创建）→ 提交批复 → <b>待审批</b> → 批复管理·确认批复 → <b>已批复</b>（生成计量凭证，回写数据池批复量）<br>
+<b>待审批</b> → 批复管理·驳回 → <b>已驳回</b>（释放上报量）→ 重新编辑 → 再次提交 → 待审批 …
+</div>
 
-  <h3 class="sub">5.3 计量凭证 MeasureOrder / 行 MeasureOrderLine</h3>
-  <table class="t">
-    <tr><th class="k" style="width:170px">字段</th><th class="c" style="width:90px">类型</th><th>说明</th></tr>
-    <tr><td class="k">code / statementId / statementCode</td><td class="c">string</td><td>JLD-202608-001；来源台账（一一对应）</td></tr>
-    <tr><td class="k">declaredAmount / approvedAmount / deduction</td><td class="c">number</td><td>申报 / 批复 / 扣款金额</td></tr>
-    <tr><td class="k">status / archived</td><td class="c">枚举/boolean</td><td>effective 生效 / archived 已归档</td></tr>
-    <tr><td class="k">approveTime</td><td class="c">string</td><td>批复时间（生成时间）</td></tr>
-    <tr><td class="k">lines[]</td><td class="c">MeasureOrderLine[]</td><td>行：chapter/code/name/unit/price/contractQty + <b>declaredQty vs approvedQty</b> + <b>declaredAmount vs approvedAmount</b> + prevCum 快照</td></tr>
-  </table>
+<h3>8.2 应收单状态流转</h3>
+<div class="flow">
+<b>待填报</b>（创建/生成）→ 推送 → <b>已推送财务共享</b> → 财务共享确认 → <b>财务共享已确认</b> → 回款跟踪（登记/新增回款，可多笔）→ 结清
+</div>
 
-  <h3 class="sub">5.4 应收单 ReceivableOrder 与回款 PaymentRecord</h3>
-  <table class="t">
-    <tr><th class="k" style="width:170px">字段</th><th class="c" style="width:90px">类型</th><th>说明</th></tr>
-    <tr><td class="k">code / measureOrderIds / measureOrderCode</td><td class="c">string / string[]</td><td>YSD-202608-001；来源计量凭证（合同 1:1，支持同合同多张已批复计量单合并，measureOrderIds）</td></tr>
-    <tr><td class="k">amount</td><td class="c">number</td><td>应收金额 = 本期可收金额（含税）= 计量 + 变更 + 材料调差 − 罚款 − 应扣预付款 − 应扣待付扣回 − 其他预付款扣回 + 保证金</td></tr>
-    <tr><td class="k">status</td><td class="c">枚举</td><td>draft 待推送 / pushed 已推送财务共享 / confirmed 已确认</td></tr>
-    <tr><td class="k">pushedAt / confirmedAt</td><td class="c">string?</td><td>推送 / 确认时间</td></tr>
-    <tr><td class="k">工程结算应收单<br>填报字段</td><td class="c">—</td><td>docDate / bizDate（单据·业务日期*）、sysCode（JLGL-YSDN-…）/ regCode（YS-…）、dept / bizContent、settleOrg / invoiceApplyOrg / accountOrg / collectOrg（四组织）、agingStart / invoiceReceived / payee / currency；金额口径 curMeasureAmount / prevCumMeasureAmount / endCumMeasureAmount、curChange / curMaterialAdj / curPenalty / curAdvanceDeduct / curPayableDeduct / curOtherAdvanceDeduct / curDeposit / curInvoiceAmount / curCollectible / settleBatch</td></tr>
-    <tr><td class="k">deposits / invoices /<br>invoiceInfo / plans /<br>attachments</td><td class="c">—</td><td>保证金明细（type/amount/invoiceNow/remark）；开票明细（name/taxCategory/amount/taxRate/taxAmount/exclTaxAmount/<b>invoicedAmount</b> 已开票金额）；发票其他信息（projectName/invoiceType/email/phone/goods/remark）；收款计划（planDate/condition/amount/incomeItem/<b>depositType / settledAmount / settleMethod</b>）；附件（fileName）</td></tr>
-    <tr><td class="k">PaymentRecord</td><td class="c">—</td><td>code（HK-YYYYMM-NNN）/ receivableId / amount / payDate / method（电汇/承兑汇票/支票）/ remark</td></tr>
-  </table>
-  <p style="font-size:13px"><b>合同快照 MeasureContract：</b><span class="k">code/name/ownerType/ownerName/partyB/amount/projectName/startDate/endDate</span> + <span class="k">role</span>（<b>合同角色</b>：main 主合同 / coop 协同合同，当前单位为主要单位 / 协同单位）+ <span class="k">mainContractId</span>（协同合同：关联主合同）+ <span class="k">mainOrgName</span>（协同合同：主要单位名称）+ <span class="k">coopOrgName</span>（主合同：参与施工的协同单位名称），来源于合同管理模块收入合同。</p>
+<h3>8.3 编号规则</h3>
+<table>
+  <tr><th>单据</th><th>编号格式</th><th>示例</th></tr>
+  <tr><td>计量单</td><td>JL-年月-三位序号</td><td>JL-202608-001</td></tr>
+  <tr><td>计量凭证</td><td>JLD-年月-三位序号</td><td>JLD-202608-001</td></tr>
+  <tr><td>应收单</td><td>YSD-年月-三位序号</td><td>YSD-202608-001</td></tr>
+  <tr><td>回款流水</td><td>HK-年月日-序号</td><td>HK-20260901-01</td></tr>
+</table>
 
-  <h3 class="sub">5.5 协同推送日志 CoopPushLog</h3>
-  <table class="t">
-    <tr><th class="k" style="width:170px">字段</th><th class="c" style="width:90px">类型</th><th>说明</th></tr>
-    <tr><td class="k">id / createdAt / operator</td><td class="c">string</td><td>记录 ID / 推送时间 / 经办人</td></tr>
-    <tr><td class="k">fromContractId / fromContractCode</td><td class="c">string</td><td>来源协同合同（id / 编号）</td></tr>
-    <tr><td class="k">fromItemId / fromItemCode / fromItemName</td><td class="c">string</td><td>来源子目（协同合同子目）</td></tr>
-    <tr><td class="k">toContractId / toContractCode</td><td class="c">string</td><td>目标主合同（id / 编号，须为来源合同关联主合同）</td></tr>
-    <tr><td class="k">toItemId / toItemCode / toItemName</td><td class="c">string</td><td>目标子目（主合同下正式·合同内子目）</td></tr>
-    <tr><td class="k">qty</td><td class="c">number</td><td>推送数量（≤ 来源子目未推送量）</td></tr>
-  </table>
-  <p style="font-size:13px">协同页签「推送记录」按时间倒序展示；每次推送确认即追加一条（源子目 pushedQty、目标子目 coopQty 同步累计）。</p>
-  <div class="note">数据存储：前端本地存储（localStorage，<code>md_measure5_</code> 前缀 key：contracts / pool / statements / orders / receivables / payments / transfers / coop_pushes），种子数据内置 5 份主合同 + 3 份协同合同（含交投与其他业主两类批复路径示例）、3 张计量凭证（含 2 张已批复未创建应收单，供创建应收单向导演示）及 5 条历史推送记录。</div>
+<h3>8.4 术语表</h3>
+<table>
+  <tr><th>术语</th><th>释义</th></tr>
+  <tr><td>计量</td><td>按期向业主申报本期完成的工程量与金额，作为结算依据</td></tr>
+  <tr><td>批复</td><td>业主对计量申报的审核确认结果（含行级批复数量与最终批复金额）</td></tr>
+  <tr><td>计量凭证</td><td>计量单批复通过后自动生成的凭证单据，记录申报量/批复量双口径</td></tr>
+  <tr><td>主合同 / 协同合同</td><td>当前单位为合同签订主要单位 / 协同单位的合同</td></tr>
+  <tr><td>数据池回写</td><td>提交/批复/驳回时自动更新数据池子目的已上报量、已批复量</td></tr>
+  <tr><td>扣款净额</td><td>扣款项合计（索赔+罚款+考核扣款+迟付款利息+各项扣回+保留金−调整奖励项）</td></tr>
+</table>
 
-  <!-- ================= 6 业务规则与校验 ================= -->
-  <h2 class="sec" id="s6">六、业务规则与校验清单</h2>
-  <table class="t">
-    <tr><th class="c" style="width:60px">#</th><th>规则 / 校验</th></tr>
-    <tr><td class="c">1</td><td>仅「正式 · 合同内」子目可计量；临时/合同外子目的施工量须经「转入正式」计入目标子目后参与计量</td></tr>
-    <tr><td class="c">2</td><td>发起计量添加子目默认带入全部已施工数量（=未上报计量量）；本期数量允许超出未上报量，超出部分标记提示但不拦截</td></tr>
-    <tr><td class="c">3</td><td>提交批复校验：仅草稿/已驳回可提交；明细行非空、数量&gt;0、子目可计量且申报量不超未上报量（超出拦截）；提交后回写数据池 reportedQty</td></tr>
-    <tr><td class="c">4</td><td>驳回 / 重新编辑：释放数据池已上报量（reportedQty 回退），可修改后重新提交</td></tr>
-    <tr><td class="c">5</td><td>批复金额 ≤ 申报金额，差额自动计为扣款；批复通过回写 approvedQty 并自动生成计量凭证（1 台账 1 凭证）</td></tr>
-    <tr><td class="c">6</td><td>「创建应收单」两步向导：第 1 步仅主合同可选（下拉），计量单须<b>已批复且未创建应收单</b>且属同一合同（多张可合并）；第 2 步必填校验（单据/业务日期、在册单据编号、部门、业务内容、本期开票金额 &gt; 0）；应收单按合同 1:1，重复占用计量单拦截</td></tr>
-    <tr><td class="c">7</td><td>仅「财务共享已确认」且未结清的应收单可登记回款；支持多笔部分回款；累计回款 ≤ 应收金额</td></tr>
-    <tr><td class="c">8</td><td>删除仅限草稿；归档仅限生效状态计量凭证；编辑仅限草稿</td></tr>
-    <tr><td class="c">9</td><td>计量单编号按期间自动流水（JL-YYYYMM-NNN），期数按合同+期间自动递增</td></tr>
-    <tr><td class="c">10</td><td><b>仅主合同可发起计量</b>：协同合同不直接生成计量单；协同合同子目量须经「推送到主合同」累计到主合同子目的协同单位完成量后，由主合同统一计量</td></tr>
-    <tr><td class="c">11</td><td><b>推送校验</b>：推送源须为协同合同子目；目标子目仅可在关联主合同（mainContractId 指向）下且可计量（正式·合同内）的子目中选择；推送数量 &gt; 0 且 ≤ 源子目未推送量（ownQty − pushedQty）；推送后源 pushedQty 与目标 coopQty 同步累计并写入 CoopPushLog</td></tr>
-    <tr><td class="c">12</td><td><b>主合同子目「协同单位完成」（coopQty）只读</b>：仅由协同推送自动累计，不可在子目编辑弹窗中直接修改；计量行按「历史申报优先消耗本组织量」规则快照本组织/协同构成（ownQty / coopQty），编辑数量按比例缩放</td></tr>
-  </table>
-
-  <div class="footer">计量应收模块 PRD V1.2 · 2026-10-02 · 与代码实现同步（React 19 + TS + Vite，模块源码 src/pages/measure/）· V1.2 变更：创建应收单改两步向导（下拉选合同 + 计量单列表合并一步）、弹窗调大、按交工计量系统样式补齐字段（是否有合同/多币别/是否微调/已开票金额/收款计划新列）· V1.1 变更：计量数据池主合同/协同合同双页签、协同推送、来源构成区分</div>
+<p class="meta" style="margin-top:48px">— 文档完 · 截图均为系统实测页面（2026-10-08）—</p>
 </div>
 </body>
 </html>

@@ -119,10 +119,6 @@ export default function ReceivableManager({ onRefresh }: Props) {
     return true;
   });
 
-  const totalAmount = filtered.reduce((s, r) => s + r.amount, 0);
-  const draftCount = filtered.filter(r => r.status === 'draft').length;
-  const paidTotal = receivables.reduce((s, r) => s + paidAmountOf(r.id), 0);
-
   // 已创建应收单的计量单 id 集合
   const usedOrderIds = useMemo(() => {
     const s = new Set<string>();
@@ -244,26 +240,6 @@ export default function ReceivableManager({ onRefresh }: Props) {
 
   return (
     <div className="p-5">
-      {/* 汇总卡片 */}
-      <div className="grid grid-cols-4 gap-3 mb-4">
-        <div className="bg-white rounded-lg border border-slate-200 p-3">
-          <div className="text-xs text-slate-500 mb-1">应收单数量</div>
-          <div className="text-2xl font-bold text-slate-800 tabular-nums">{filtered.length} <span className="text-sm font-normal text-slate-400">张</span></div>
-        </div>
-        <div className="bg-white rounded-lg border border-slate-200 p-3">
-          <div className="text-xs text-slate-500 mb-1">待推送</div>
-          <div className="text-2xl font-bold text-amber-600 tabular-nums">{draftCount} <span className="text-sm font-normal text-slate-400">张</span></div>
-        </div>
-        <div className="bg-white rounded-lg border border-slate-200 p-3">
-          <div className="text-xs text-slate-500 mb-1">累计应收金额</div>
-          <div className="text-2xl font-bold text-violet-600 tabular-nums">{fmtMoney(totalAmount)}</div>
-        </div>
-        <div className="bg-white rounded-lg border border-slate-200 p-3">
-          <div className="text-xs text-slate-500 mb-1">累计回款</div>
-          <div className="text-2xl font-bold text-emerald-600 tabular-nums">{fmtMoney(paidTotal)}</div>
-        </div>
-      </div>
-
       <SearchBar onAdd={openWiz} addLabel="+ 创建应收单">
         <Input value={kw} onChange={setKw} placeholder="应收单号 / 计量单号 / 合同名称" className="!w-60" />
         <Select value={status} onChange={setStatus} placeholder="全部状态" className="!w-40"

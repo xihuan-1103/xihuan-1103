@@ -49,12 +49,33 @@ export default function StatementWizard({ onClose, onDone, initial, defaultContr
   const pool = useMemo(() => getPool(), []);
   const contracts = useMemo(() => getMeasureContracts(), []);
 
-  const [step, setStep] = useState(isEdit ? 2 : defaultContractId ? 2 : 1);
+  const [step, setStep] = useState(() => {
+    const us = Number(new URLSearchParams(window.location.search).get('step'));   // 调试：?step=N 直达
+    if (us >= 1 && us <= 3) return us;
+    return isEdit ? 2 : defaultContractId ? 2 : 1;
+  });
   const [contractId, setContractId] = useState(initial?.contractId || defaultContractId || '');
   const [periodStart, setPeriodStart] = useState(initial?.periodStart || monthFirst());
   const [periodEnd, setPeriodEnd] = useState(initial?.periodEnd || todayStr());
-  const [lines, setLines] = useState<MeasureStatementLine[]>(
-    initial ? initial.lines.map(l => ({ ...l })) : []);
+  const [lines, setLines] = useState<MeasureStatementLine[]>(() => {
+    if (initial) return initial.lines.map(l => ({ ...l }));
+    // 调试/直达：?wizauto=1 自动带入该合同全部可计量子目（模拟已添加，配合 ?step=3 直达预览步复现/分享）
+    if (new URLSearchParams(window.location.search).get('wizauto') !== '1' || !defaultContractId) return [];
+    return getPool().filter(x => x.contractId === defaultContractId && canMeasure(x)).map(p => {
+      const qty = Math.max(0, unreportedQty(p));
+      const prev = prevCumulative(p.contractId, p.id, monthFirst());
+      const ownPart = Math.max(0, Math.min(qty, ownUnreportedQty(p)));
+      return {
+        id: genId('msl'), poolItemId: p.id, chapter: chapterOf(p.code),
+        code: p.code, name: p.name, unit: p.unit, price: p.price,
+        contractQty: p.totalQty, changeAmount: 0,
+        qty, amount: r2(qty * p.price),
+        ownQty: r2(ownPart), coopQty: r2(qty - ownPart),
+        prevCumQty: prev.qty, prevCumAmount: prev.amount,
+        isSafeFee: p.isSafeFee,
+      };
+    });
+  });
   const [deductions, setDeductions] = useState<StatementDeductions>(initial?.deductions || {});
   const [handler, setHandler] = useState(initial?.handler || '陈技术');
   const [remark, setRemark] = useState(initial?.remark || '');
@@ -264,7 +285,7 @@ export default function StatementWizard({ onClose, onDone, initial, defaultContr
                           </div>
                           <div className="text-xs text-slate-500 mt-0.5">
                             业主：{c.ownerName}
-                            {c.ownerType === 'jtou' ? '（交投·推送批复）' : '（其他·自闭环批复）'}
+                            {c.ownerType === 'jtou' ? '（交投业主）' : '（其他业主）'}
                             {coopVal > 0 && <span className="text-cyan-600"> · 含协同单位完成 {fmtMoney(coopVal)}</span>}
                           </div>
                         </div>
@@ -369,7 +390,7 @@ export default function StatementWizard({ onClose, onDone, initial, defaultContr
                               {l.name}
                               {l.isSafeFee && <span className="ml-1"><TypePill text="安全生产费" tone="cyan" /></span>}
                             </td>
-                            <td className={`${M.td} text-right tabular-nums`}>{fmtNum(l.price)}</td>
+                            <td className={`${M.td} text-right tabular-nums`}>{fmtMoney(l.price)}</td>
                             <td className={`${M.td} text-right tabular-nums`}>{fmtNum(l.contractQty)}</td>
                             <td className={M.td}>
                               <input type="number" step="any" value={l.qty}
@@ -461,7 +482,7 @@ export default function StatementWizard({ onClose, onDone, initial, defaultContr
                                   {p.name}
                                   {p.isSafeFee && <span className="ml-1"><TypePill text="安全生产费" tone="cyan" /></span>}
                                 </td>
-                                <td className={`${M.td} text-right tabular-nums`}>{fmtNum(p.price)}</td>
+                                <td className={`${M.td} text-right tabular-nums`}>{fmtMoney(p.price)}</td>
                                 <td className={`${M.td} text-right tabular-nums`}>{fmtNum(p.totalQty)}</td>
                                 <td className={`${M.td} text-right tabular-nums`}>
                                   {fmtNum(builtQty(p))}
@@ -573,7 +594,7 @@ export default function StatementWizard({ onClose, onDone, initial, defaultContr
                               {p.name}
                               {p.isSafeFee && <span className="ml-1"><TypePill text="安全生产费" tone="cyan" /></span>}
                             </td>
-                            <td className={`${M.td} text-right tabular-nums`}>{fmtNum(p.price)}</td>
+                            <td className={`${M.td} text-right tabular-nums`}>{fmtMoney(p.price)}</td>
                             <td className={`${M.td} text-right tabular-nums`}>{fmtNum(p.totalQty)}</td>
                             <td className={`${M.td} text-right tabular-nums`}>
                               {fmtNum(builtQty(p))}

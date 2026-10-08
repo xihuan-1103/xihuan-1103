@@ -158,6 +158,7 @@ export interface MeasureStatementLine {
   amount: number;            // 本期完成金额 = qty × price
   ownQty?: number;           // 其中：本组织完成数量（快照，主合同计量时区分来源）
   coopQty?: number;          // 其中：协同单位完成数量（快照，来自协同合同推送量）
+  approvedQty?: number;      // 计量批复数量（批复维护时录入，默认 = 计量数量）
   prevCumQty: number;        // 到上期末完成数量（快照）
   prevCumAmount: number;     // 到上期末完成金额（快照）
   isSafeFee?: boolean;
@@ -188,6 +189,7 @@ export interface MeasureStatement {
   deduction?: number;            // 扣款金额（申报-批复）
   rejectReason?: string;
   approveOpinion?: string;
+  attachments?: string[];        // 批复附件（批复维护时上传的文件名列表）
   // 提交/推送/批复时间
   submittedAt?: string;
   pushedAt?: string;             // 推送交投时间

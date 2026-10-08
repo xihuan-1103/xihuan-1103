@@ -1028,43 +1028,24 @@ function releaseReported(st: MeasureStatement) {
   savePool(pool);
 }
 
-// ==================== 批复操作（两条路径） ====================
+// ==================== 批复操作（系统内自行维护计量批复） ====================
 
-/** 交投路径：推送批复（submitted → approving） */
-export function pushToOwner(id: string): string | null {
-  const list = getStatements();
-  const st = list.find(s => s.id === id);
-  if (!st) return '未找到计量单';
-  if (st.ownerType !== 'jtou') return '仅交投业主走系统推送批复';
-  if (st.status !== 'submitted') return '当前状态不可推送';
-  list[list.indexOf(st)] = { ...st, status: 'approving', pushedAt: nowStr(), updatedAt: nowStr() };
-  saveStatements(list);
-  return null;
-}
-
-/** 交投路径：批复回传（approving → approved），自动对比识别扣款、生成计量凭证 */
-export function jtouApprove(id: string, result: { approvedAmount: number; opinion?: string }): string | null {
-  const list = getStatements();
-  const st = list.find(s => s.id === id);
-  if (!st) return '未找到计量单';
-  if (st.status !== 'approving') return '当前状态未处于批复中';
-  const err = applyApproval(st, result.approvedAmount, result.opinion);
-  if (err) return err;
-  return null;
-}
-
-/** 其他业主路径：系统内自闭环批复（submitted → approved/rejected） */
-export function selfApprove(id: string, result: {
-  approved: boolean; approvedAmount?: number; opinion?: string; rejectReason?: string;
+/** 维护计量批复（submitted/approving → approved / rejected，全部业主统一自维护，不再推送交投）
+ *  行级批复数量默认 = 计量数量，可逐行调整；维护最终批复金额，可上传批复附件 */
+export function maintainApprove(id: string, result: {
+  approved: boolean;
+  lineQtys?: Record<string, number>;    // 行 id → 批复数量（缺省 = 该行计量数量）
+  approvedAmount?: number;              // 最终批复金额（缺省 = 行批复合计 + 扣款净额）
+  opinion?: string; rejectReason?: string;
+  attachments?: string[];
 }): string | null {
   const list = getStatements();
   const st = list.find(s => s.id === id);
   if (!st) return '未找到计量单';
-  if (st.ownerType !== 'other') return '交投业主请走推送批复';
-  if (st.status !== 'submitted') return '当前状态不可批复';
+  if (st.status !== 'submitted' && st.status !== 'approving') return '当前状态不可批复';
 
   if (!result.approved) {
-    // 驳回：释放上报量，回 draft 链路
+    // 驳回：释放上报量，回到已驳回状态可重新编辑申报
     const fresh = getStatements();
     const cur = fresh.find(s => s.id === id)!;
     fresh[fresh.indexOf(cur)] = {
@@ -1074,38 +1055,61 @@ export function selfApprove(id: string, result: {
     releaseReported(cur);
     return null;
   }
-  const err = applyApproval(st, result.approvedAmount ?? netPayableOf(st), result.opinion);
-  if (err) return err;
-  return null;
+
+  // 行级批复数量（默认 = 计量数量）
+  const newLines: MeasureStatementLine[] = st.lines.map(l => ({
+    ...l,
+    approvedQty: result.lineQtys && result.lineQtys[l.id] !== undefined
+      ? Math.max(0, Math.round(result.lineQtys[l.id] * 100) / 100)
+      : l.qty,
+  }));
+  const lineTotal = newLines.reduce((s, l) => s + (l.approvedQty || 0) * l.price, 0);   // 行批复合计
+  const defaultAmount = Math.round((lineTotal + deductionsNet(st.deductions)) * 100) / 100;
+  return applyApproval(st, {
+    lines: newLines,
+    approvedAmount: result.approvedAmount ?? defaultAmount,
+    opinion: result.opinion,
+    attachments: result.attachments,
+  });
 }
 
-/** 通用批复落地：更新计量单 + 数据池批复量 + 生成计量凭证 */
-function applyApproval(st: MeasureStatement, approvedAmount: number, opinion?: string): string | null {
+/** 通用批复落地：更新计量单（行批复数量/附件/最终批复金额）+ 数据池批复量 + 生成计量凭证 */
+function applyApproval(st: MeasureStatement, input: {
+  lines: MeasureStatementLine[]; approvedAmount: number; opinion?: string; attachments?: string[];
+}): string | null {
+  const { approvedAmount } = input;
   if (approvedAmount < 0) return '批复金额不能为负数';
   const net = netPayableOf(st);
-  if (approvedAmount > net) return `批复金额超出实际支付金额（¥${net.toLocaleString()})`;
+  if (approvedAmount > net) return `批复金额超出实际支付金额（${net.toLocaleString()}元）`;
+  for (const l of input.lines) {
+    if ((l.approvedQty || 0) > l.qty) {
+      return `子目 ${l.code} 批复数量（${l.approvedQty}）不能超过计量数量（${l.qty}）`;
+    }
+  }
 
   const list = getStatements();
-  const idx = list.indexOf(st);
+  const idx = list.findIndex(s => s.id === st.id);   // 按 id 定位（getStatements 每次 parse 为新对象，不能 indexOf 引用比较）
+  if (idx < 0) return '未找到计量单';
   const now = nowStr();
   const deduction = Math.round((net - approvedAmount) * 100) / 100;
 
-  // 数据池：已批复计量量按批复比例分摊
+  // 数据池：已批复计量量按行级批复数量累计
   const pool = getPool();
-  const ratio = st.totalAmount > 0 ? approvedAmount / st.totalAmount : 0;
-  for (const l of st.lines) {
+  for (const l of input.lines) {
     if (l.manual || !l.poolItemId) continue;
     const p = pool.find(x => x.id === l.poolItemId);
     if (p) {
-      const approvedLineQty = Math.round(l.qty * ratio * 100) / 100;
-      pool[pool.indexOf(p)] = { ...p, approvedQty: Math.round((p.approvedQty + approvedLineQty) * 100) / 100, updatedAt: now };
+      pool[pool.indexOf(p)] = {
+        ...p, approvedQty: Math.round((p.approvedQty + (l.approvedQty || 0)) * 100) / 100, updatedAt: now,
+      };
     }
   }
   savePool(pool);
 
   list[idx] = {
-    ...st, status: 'approved', approvedAmount, deduction,
-    approveOpinion: opinion, approvedAt: now, updatedAt: now,
+    ...st, lines: input.lines, status: 'approved', approvedAmount, deduction,
+    approveOpinion: input.opinion, attachments: input.attachments || st.attachments,
+    approvedAt: now, updatedAt: now,
   };
   saveStatements(list);
 
@@ -1123,16 +1127,22 @@ function genOrderFromStatement(st: MeasureStatement): MeasureOrder {
   const existIdx = orders.findIndex(o => o.statementId === st.id);
   const net = netPayableOf(st);
   const ratio = st.totalAmount > 0 ? net / st.totalAmount : 0;
-  const lines: MeasureOrderLine[] = st.lines.map(l => ({
-    id: genId('mol'), chapter: l.chapter, code: l.code, name: l.name, unit: l.unit, price: l.price,
-    contractQty: l.contractQty,
-    declaredQty: l.qty,
-    approvedQty: Math.round(l.qty * ratio * 100) / 100,
-    declaredAmount: l.amount,
-    approvedAmount: Math.round(l.amount * ratio * 100) / 100,
-    prevCumQty: l.prevCumQty,
-    prevCumAmount: l.prevCumAmount,
-  }));
+  const lines: MeasureOrderLine[] = st.lines.map(l => {
+    // 批复维护录入的行级批复数量优先；无批复数量时按实际支付比例折算（兼容旧数据）
+    const lineApprovedQty = l.approvedQty !== undefined
+      ? Math.round(l.approvedQty * 100) / 100
+      : Math.round(l.qty * ratio * 100) / 100;
+    return {
+      id: genId('mol'), chapter: l.chapter, code: l.code, name: l.name, unit: l.unit, price: l.price,
+      contractQty: l.contractQty,
+      declaredQty: l.qty,
+      approvedQty: lineApprovedQty,
+      declaredAmount: l.amount,
+      approvedAmount: Math.round(lineApprovedQty * l.price * 100) / 100,
+      prevCumQty: l.prevCumQty,
+      prevCumAmount: l.prevCumAmount,
+    };
+  });
   const order: MeasureOrder = {
     id: genId('mo'),
     code: `JLD-${st.period.replace('-', '')}-${String(st.periodNo).padStart(3, '0')}`,
@@ -1337,7 +1347,7 @@ export function addPayment(rec: Omit<PaymentRecord, 'id' | 'code' | 'createdAt'>
   const paid = paidAmountOf(rec.receivableId);
   if (rec.amount <= 0) return { ok: false, msg: '回款金额必须大于 0' };
   if (paid + rec.amount > ro.amount + 0.01) {
-    return { ok: false, msg: `累计回款将超出应收金额（已回 ¥${paid.toLocaleString()} / 应收 ¥${ro.amount.toLocaleString()}）` };
+    return { ok: false, msg: `累计回款将超出应收金额（已回 ${paid.toLocaleString()}元 / 应收 ${ro.amount.toLocaleString()}元）` };
   }
   const payments = getPayments();
   payments.unshift({

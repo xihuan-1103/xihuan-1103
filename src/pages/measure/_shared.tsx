@@ -165,6 +165,6 @@ export function useToast() {
 
 /* ==================== 金额格式化 ==================== */
 export const fmtMoney = (n: number | undefined) =>
-  `¥${(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  `${(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}元`;
 export const fmtNum = (n: number | undefined) =>
   (n === undefined || n === null) ? '—' : n.toLocaleString();

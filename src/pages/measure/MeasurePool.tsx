@@ -65,8 +65,9 @@ export default function MeasurePool({ onRefresh }: Props) {
   const [pushAllC, setPushAllC] = useState<string>('');          // 协同合同 id
   const [pushAllOperator, setPushAllOperator] = useState('陈技术');
 
-  // 发起计量向导（仅主合同；contractId 为空表示关闭）
-  const [wizardContract, setWizardContract] = useState<string | null>(null);
+  // 发起计量向导（仅主合同；contractId 为空表示关闭；支持 ?wizc=<合同id> 直达打开，便于预览/分享）
+  const [wizardContract, setWizardContract] = useState<string | null>(
+    () => new URLSearchParams(window.location.search).get('wizc'));
 
   // 合同清单展开状态（默认收起，点击合同行「展开清单」展开该合同下可申报计量的清单）
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -300,7 +301,7 @@ export default function MeasurePool({ onRefresh }: Props) {
                     </div>
                     <div className="text-xs text-slate-500 font-mono truncate">
                       {c?.code} · {items[0].projectName} · 业主：{c?.ownerName}
-                      {c?.ownerType === 'jtou' ? '（交投·推送批复）' : '（其他·自闭环）'}
+                      {c?.ownerType === 'jtou' ? '（交投业主）' : '（其他业主）'}
                       {coopValue > 0 && <span className="text-cyan-600"> · 含协同单位完成 {fmtMoney(coopValue)}</span>}
                     </div>
                   </div>

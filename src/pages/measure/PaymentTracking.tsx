@@ -34,6 +34,9 @@ export default function PaymentTracking({ onRefresh }: Props) {
   // 流水视图
   const [flowOpen, setFlowOpen] = useState(false);
   const [flowOf, setFlowOf] = useState<ReceivableOrder | null>(null);
+  // 流水弹窗内手动新增回款
+  const [flowAddOpen, setFlowAddOpen] = useState(false);
+  const [flowForm, setFlowForm] = useState({ amount: 0, payDate: new Date().toISOString().slice(0, 10), method: '电汇', remark: '' });
 
   const projects: string[] = [...new Set(receivables.map(r => r.projectName))];
 
@@ -92,6 +95,30 @@ export default function PaymentTracking({ onRefresh }: Props) {
   };
 
   const flowRecords = flowOf ? payments.filter(p => p.receivableId === flowOf.id) : [];
+
+  /** 流水弹窗内：展开新增回款表单（默认金额 = 未回款余额） */
+  const openFlowAdd = () => {
+    if (!flowOf) return;
+    const unpaid = flowOf.amount - paidAmountOf(flowOf.id);
+    setFlowForm({ amount: unpaid, payDate: new Date().toISOString().slice(0, 10), method: '电汇', remark: '' });
+    setFlowAddOpen(true);
+  };
+
+  /** 流水弹窗内：确认新增回款 */
+  const doFlowAdd = () => {
+    if (!flowOf) return;
+    const rec: Omit<PaymentRecord, 'id' | 'code' | 'createdAt'> = {
+      receivableId: flowOf.id, receivableCode: flowOf.code,
+      contractCode: flowOf.contractCode, contractName: flowOf.contractName,
+      projectName: flowOf.projectName, ownerName: flowOf.ownerName,
+      amount: Number(flowForm.amount) || 0, payDate: flowForm.payDate, method: flowForm.method, remark: flowForm.remark,
+    };
+    const r = addPayment(rec);
+    if (!r.ok) { toast(r.msg, 'error'); return; }
+    refresh();
+    setFlowAddOpen(false);
+    toast(r.msg, 'success');
+  };
 
   return (
     <div className="p-5">
@@ -236,7 +263,7 @@ export default function PaymentTracking({ onRefresh }: Props) {
                             {unpaid <= 0.01 ? '已结清' : '登记回款'}
                           </button>
                         )}
-                        <button className={M.button.tiny} onClick={() => { setFlowOf(r); setFlowOpen(true); }}>回款流水</button>
+                        <button className={M.button.tiny} onClick={() => { setFlowOf(r); setFlowAddOpen(false); setFlowOpen(true); }}>回款流水</button>
                       </div>
                     </td>
                   </tr>
@@ -299,9 +326,6 @@ export default function PaymentTracking({ onRefresh }: Props) {
       {/* 回款流水弹窗 */}
       <Modal title={`回款流水 - ${flowOf?.code || ''}`} open={flowOpen} onClose={() => setFlowOpen(false)} width="max-w-2xl"
         footer={<>
-          {flowOf && flowOf.status === 'confirmed' && (
-            <button className={M.button.primary} onClick={() => { setFlowOpen(false); openPay(flowOf); }}>+ 登记回款</button>
-          )}
           <button className={M.button.ghost} onClick={() => setFlowOpen(false)}>关闭</button>
         </>}>
         {flowOf && (
@@ -320,6 +344,46 @@ export default function PaymentTracking({ onRefresh }: Props) {
                 <div className="font-bold text-rose-600 tabular-nums">{fmtMoney(flowOf.amount - paidAmountOf(flowOf.id))}</div>
               </div>
             </div>
+
+            {/* 新增回款入口 + 内嵌表单（仅财务共享已确认且未结清时显示） */}
+            {flowOf.status === 'confirmed' && flowOf.amount - paidAmountOf(flowOf.id) > 0.01 && (
+              flowAddOpen ? (
+                <div className="border border-violet-200 bg-violet-50/40 rounded-lg p-3 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className={M.label}>本次回款金额(元) *</label>
+                      <Input type="number" step="0.01" min={0} value={flowForm.amount}
+                        onChange={v => setFlowForm({ ...flowForm, amount: Number(v) || 0 })} />
+                      {flowForm.amount > flowOf.amount - paidAmountOf(flowOf.id) + 0.01 && (
+                        <div className="text-xs text-rose-600 mt-1">超出未回款余额</div>
+                      )}
+                    </div>
+                    <div>
+                      <label className={M.label}>回款日期 *</label>
+                      <Input type="date" value={flowForm.payDate} onChange={v => setFlowForm({ ...flowForm, payDate: v })} />
+                    </div>
+                    <div>
+                      <label className={M.label}>回款方式</label>
+                      <Select value={flowForm.method} onChange={v => setFlowForm({ ...flowForm, method: v })}
+                        options={[{ value: '电汇', label: '电汇' }, { value: '承兑汇票', label: '承兑汇票' }, { value: '支票', label: '支票' }]} />
+                    </div>
+                    <div>
+                      <label className={M.label}>备注</label>
+                      <Input value={flowForm.remark} onChange={v => setFlowForm({ ...flowForm, remark: v })} />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <button className={M.button.ghost} onClick={() => setFlowAddOpen(false)}>取消</button>
+                    <button className={M.button.primary} onClick={doFlowAdd}>确认新增</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex justify-end">
+                  <button className={M.button.tinyViolet} onClick={openFlowAdd}>+ 新增回款</button>
+                </div>
+              )
+            )}
+
             {flowRecords.length === 0 ? (
               <div className="text-center text-slate-400 py-8 text-sm border border-dashed border-slate-200 rounded-lg">暂无回款流水</div>
             ) : (

@@ -537,6 +537,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               >
                 <Settings size={16} />
               </button>
+              ) : location.pathname.startsWith('/measure/') ? (
+                <span>单位: <strong className="text-slate-700 font-mono">元 / 人民币</strong></span>
               ) : (
                 <span>单位: <strong className="text-slate-700 font-mono">万元 / 人民币</strong></span>
               )}

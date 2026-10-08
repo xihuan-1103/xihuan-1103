@@ -8,17 +8,31 @@
 
 import React, { useMemo, useState } from 'react';
 import {
-  M, Modal, Input, Select, SearchBar, StatementStatusPill, TypePill, useToast, fmtNum, fmtMoney,
+  M, Modal, Input, Select, SearchBar, TypePill, useToast, fmtMoney,
 } from './_shared';
 import type { MeasureStatement } from './types';
 import {
   getStatements, getMeasureContracts, deleteStatementSafe,
-  submitStatement, reopenStatement, netPayableOf,
+  submitStatement, reopenStatement,
 } from './measureStore';
 import StatementWizard from './StatementWizard';
 import StatementPreview from './StatementPreview';
 
 interface Props { key?: string | number; onRefresh?: () => void; }
+
+/** 状态值：草稿 / 待审批（已提交待批复）/ 已批复 / 已驳回 */
+const STATUS: Record<string, { label: string; cls: string }> = {
+  draft: { label: '草稿', cls: `${M.pill} bg-slate-100 text-slate-700` },
+  submitted: { label: '待审批', cls: `${M.pill} bg-blue-50 text-blue-700` },
+  approving: { label: '待审批', cls: `${M.pill} bg-blue-50 text-blue-700` },
+  approved: { label: '已批复', cls: `${M.pill} bg-emerald-50 text-emerald-700` },
+  rejected: { label: '已驳回', cls: `${M.pill} bg-rose-50 text-rose-700` },
+};
+
+const StatusPill = ({ status }: { status: string }) => {
+  const s = STATUS[status];
+  return <span className={s?.cls || M.pill}>{s?.label || status}</span>;
+};
 
 export default function MeasureStatementManager({ onRefresh }: Props) {
   const [version, setVersion] = useState(0);
@@ -47,15 +61,6 @@ export default function MeasureStatementManager({ onRefresh }: Props) {
     }
     return true;
   });
-
-  const statusLabel: Record<string, string> = {
-    draft: '草稿', submitted: '已申报·待批复', approving: '批复中(交投)', approved: '已批复', rejected: '已驳回',
-  };
-
-  const totalDeclared = filtered.reduce((s, x) => s + x.totalAmount, 0);
-  const totalNet = filtered.reduce((s, x) => s + netPayableOf(x), 0);
-  const totalApproved = filtered.reduce((s, x) => s + (x.approvedAmount || 0), 0);
-  const pendingCount = filtered.filter(s => s.status === 'submitted' || s.status === 'approving').length;
 
   /* ===== 操作 ===== */
 
@@ -88,32 +93,12 @@ export default function MeasureStatementManager({ onRefresh }: Props) {
 
   return (
     <div className="p-5">
-      {/* 汇总卡片 */}
-      <div className="grid grid-cols-4 gap-3 mb-4">
-        <div className="bg-white rounded-lg border border-slate-200 p-3">
-          <div className="text-xs text-slate-500 mb-1">计量单数量</div>
-          <div className="text-2xl font-bold text-slate-800 tabular-nums">{filtered.length} <span className="text-sm font-normal text-slate-400">期</span></div>
-        </div>
-        <div className="bg-white rounded-lg border border-slate-200 p-3">
-          <div className="text-xs text-slate-500 mb-1">待批复</div>
-          <div className="text-2xl font-bold text-amber-600 tabular-nums">{pendingCount} <span className="text-sm font-normal text-slate-400">期</span></div>
-        </div>
-        <div className="bg-white rounded-lg border border-slate-200 p-3">
-          <div className="text-xs text-slate-500 mb-1">累计申报金额</div>
-          <div className="text-2xl font-bold text-violet-600 tabular-nums">{fmtMoney(totalDeclared)}</div>
-        </div>
-        <div className="bg-white rounded-lg border border-slate-200 p-3">
-          <div className="text-xs text-slate-500 mb-1">累计实际支付（含扣款调整）</div>
-          <div className="text-2xl font-bold text-emerald-600 tabular-nums">{fmtMoney(totalNet)}</div>
-        </div>
-      </div>
-
       <SearchBar onAdd={openNewWizard} addLabel="+ 发起计量（向导）">
         <Input value={kw} onChange={setKw} placeholder="计量单编号 / 合同名称" className="!w-48" />
         <Select value={contractId} onChange={setContractId} placeholder="全部合同" className="!w-52"
           options={contracts.map(c => ({ value: c.id, label: c.code }))} />
         <Select value={status} onChange={setStatus} placeholder="全部状态" className="!w-36"
-          options={Object.entries(statusLabel).map(([v, l]) => ({ value: v, label: l }))} />
+          options={['draft', 'submitted', 'approved', 'rejected'].map(v => ({ value: v, label: STATUS[v].label }))} />
       </SearchBar>
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -123,13 +108,11 @@ export default function MeasureStatementManager({ onRefresh }: Props) {
               <tr>
                 <th className={`${M.th} w-12 text-center`}>序号</th>
                 <th className={M.th}>计量单编号 / 期数</th>
-                <th className={M.th}>计量期间 / 时段</th>
+                <th className={M.th}>计量时间</th>
                 <th className={M.th}>合同</th>
-                <th className={M.th}>业主 / 批复路径</th>
+                <th className={M.th}>业主</th>
                 <th className={`${M.th} text-center`}>明细行</th>
                 <th className={`${M.th} text-right`}>本期申报(元)</th>
-                <th className={`${M.th} text-right`}>实际支付(元)</th>
-                <th className={`${M.th} text-right`}>批复金额(元)</th>
                 <th className={`${M.th} text-center`}>状态</th>
                 <th className={`${M.th} text-center`}>操作</th>
               </tr>
@@ -143,10 +126,7 @@ export default function MeasureStatementManager({ onRefresh }: Props) {
                     <div className="text-xs text-slate-500">第 {s.periodNo} 期 · 经办 {s.handler}</div>
                   </td>
                   <td className={M.td}>
-                    <div className="font-mono">{s.period}</div>
-                    {s.periodStart && s.periodEnd && (
-                      <div className="text-[11px] text-slate-400 font-mono">{s.periodStart} ~ {s.periodEnd}</div>
-                    )}
+                    <div className="font-mono">{s.createdAt}</div>
                   </td>
                   <td className={M.td}>
                     <div className="font-medium text-slate-800">{s.contractName}</div>
@@ -155,17 +135,12 @@ export default function MeasureStatementManager({ onRefresh }: Props) {
                   <td className={M.td}>
                     <div className="text-slate-700">{s.ownerName}</div>
                     {s.ownerType === 'jtou'
-                      ? <TypePill text="交投·推送批复" tone="sky" />
-                      : <TypePill text="其他·自闭环" tone="amber" />}
+                      ? <TypePill text="交投业主" tone="sky" />
+                      : <TypePill text="其他业主" tone="amber" />}
                   </td>
                   <td className={`${M.td} text-center tabular-nums`}>{s.lines.length}</td>
                   <td className={`${M.td} text-right tabular-nums font-medium`}>{fmtMoney(s.totalAmount)}</td>
-                  <td className={`${M.td} text-right tabular-nums text-violet-700`}>{fmtMoney(netPayableOf(s))}</td>
-                  <td className={`${M.td} text-right tabular-nums ${s.approvedAmount !== undefined ? 'font-medium text-emerald-600' : 'text-slate-400'}`}>
-                    {s.approvedAmount !== undefined ? fmtMoney(s.approvedAmount) : '—'}
-                    {s.deduction ? <div className="text-[11px] text-rose-500">扣款 {fmtMoney(s.deduction)}</div> : null}
-                  </td>
-                  <td className={`${M.td} text-center`}><StatementStatusPill status={s.status} /></td>
+                  <td className={`${M.td} text-center`}><StatusPill status={s.status} /></td>
                   <td className={`${M.td} text-center`}>
                     <div className="flex items-center justify-center gap-1 flex-wrap">
                       {s.status === 'draft' && <button className={M.button.tiny} onClick={() => openEditWizard(s)}>编辑</button>}
@@ -181,7 +156,7 @@ export default function MeasureStatementManager({ onRefresh }: Props) {
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={11} className={`${M.td} text-center text-slate-400 py-10`}>
+                <tr><td colSpan={9} className={`${M.td} text-center text-slate-400 py-10`}>
                   暂无计量单，点击「发起计量」通过向导创建（也可在计量数据池的合同下直接发起）
                 </td></tr>
               )}

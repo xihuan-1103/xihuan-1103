@@ -243,7 +243,7 @@ export function ChapterDetailTable({ chapter, chapterLabel, lines, st }: {
                   {(l.coopQty || 0) > 0 && <div className="text-[10px] text-cyan-600">本组织 {fmtNum(l.ownQty || 0)} / 协同单位 {fmtNum(l.coopQty || 0)}</div>}
                 </td>
                 <td className={RTD_C}>{l.unit}</td>
-                <td className={RTD_R}>{fmtNum(l.price)}</td>
+                <td className={RTD_R}>{fmtMoney(l.price)}</td>
                 <td className={RTD_R}>{fmtNum(l.contractQty)}</td>
                 <td className={RTD_R}>{l.contractQty ? fmtMoney(r2(l.contractQty * l.price)) : '—'}</td>
                 <td className={RTD_C}>{dv.pct}</td>
@@ -323,7 +323,7 @@ export default function StatementPreview({ st, editable = false, onDeductionsCha
         <div>合同编号：<b className="font-mono">{st.contractCode}</b></div>
         <div>业主（批复方）：{st.ownerName}</div>
         <div>项目部：{st.projectName}</div>
-        <div>批复路径：{st.ownerType === 'jtou' ? '交投系统推送批复' : '系统内自闭环批复'}</div>
+        <div>批复方式：系统内维护批复</div>
         <div>经办技术员：{st.handler}</div>
       </div>
 
