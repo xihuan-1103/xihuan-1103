@@ -240,6 +240,7 @@ export function ChapterDetailTable({ chapter, chapterLabel, lines, st }: {
                 <td className={RTD}>
                   {l.name}
                   {l.isSafeFee && <span className="ml-1 text-[10px] text-cyan-700">[安全生产费]</span>}
+                  {(l.coopQty || 0) > 0 && <div className="text-[10px] text-cyan-600">本组织 {fmtNum(l.ownQty || 0)} / 协同单位 {fmtNum(l.coopQty || 0)}</div>}
                 </td>
                 <td className={RTD_C}>{l.unit}</td>
                 <td className={RTD_R}>{fmtNum(l.price)}</td>

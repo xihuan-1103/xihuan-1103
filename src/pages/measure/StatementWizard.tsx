@@ -17,6 +17,7 @@ import {
   getPool, getMeasureContracts, upsertStatement, nextPeriodNo, nextStatementCode,
   canMeasure, unreportedQty, periodBuiltQty, prevCumulative,
   chapterOf, chapterName, summarizeLines, genId, nowStr, builtQty,
+  ownQty, coopBuiltQty, ownUnreportedQty, coopUnreportedQty,
 } from './measureStore';
 import StatementPreview from './StatementPreview';
 
@@ -107,25 +108,39 @@ export default function StatementWizard({ onClose, onDone, initial, defaultContr
   };
 
   /** 从合同清单添加子目到本期计量单（新增子目一律从该合同的合同清单中选择，不可自行创建）
-   *  添加后默认选中所有已施工数量（=未上报计量量，即已施工量中尚未申报部分），添加后可编辑 */
+   *  添加后默认选中所有已施工数量（=未上报计量量，即已施工量中尚未申报部分），添加后可编辑；
+   *  行上区分来源构成：本组织完成 / 协同单位完成（协同合同推送），根据两个组织完成的量生成计量单 */
   const addItem = (p: MeasurePoolItem, qtyOverride?: number) => {
     const qty = qtyOverride !== undefined ? Math.max(0, qtyOverride) : Math.max(0, unreportedQty(p));
     const prev = prevCumulative(p.contractId, p.id, periodStart);
+    const ownPart = Math.max(0, Math.min(qty, ownUnreportedQty(p)));   // 本组织未上报量优先
+    const coopPart = r2(qty - ownPart);
     setLines(prevLines => [...prevLines, {
       id: genId('msl'), poolItemId: p.id, chapter: chapterOf(p.code),
       code: p.code, name: p.name, unit: p.unit, price: p.price,
       contractQty: p.totalQty, changeAmount: 0,
       qty, amount: r2(qty * p.price),
+      ownQty: r2(ownPart), coopQty: coopPart,
       prevCumQty: prev.qty, prevCumAmount: prev.amount,
       isSafeFee: p.isSafeFee,
     }]);
   };
 
-  /** 行内调整：修改数量/变更金额（勾选行） */
+  /** 行内调整：修改数量/变更金额（勾选行）；改数量时按原比例同步本组织/协同构成 */
   const updateLine = (id: string, patch: Partial<MeasureStatementLine>) => {
     setLines(prev => prev.map(l => {
       if (l.id !== id) return l;
       const nl = { ...l, ...patch };
+      if (patch.qty !== undefined) {
+        const oldQty = l.qty || 0;
+        if (oldQty > 0) {
+          const ownRatio = (l.ownQty ?? oldQty) / oldQty;
+          nl.ownQty = r2(patch.qty * ownRatio);
+          nl.coopQty = r2(patch.qty - (nl.ownQty || 0));
+        } else {
+          nl.ownQty = patch.qty; nl.coopQty = 0;
+        }
+      }
       return { ...nl, amount: r2((nl.qty || 0) * (nl.price || 0)) };
     }));
   };
@@ -221,14 +236,18 @@ export default function StatementWizard({ onClose, onDone, initial, defaultContr
 
         {/* 内容 */}
         <div className="flex-1 overflow-auto p-6">
-          {/* ===== Step1 选择合同 ===== */}
+          {/* ===== Step1 选择合同（仅主合同；协同合同不直接生成计量单） ===== */}
           {step === 1 && (
             <div>
-              <div className="text-sm text-slate-500 mb-3">请选择要发起计量的收入合同（数据池中仅正式·合同内子目可计量）：</div>
+              <div className="text-sm text-slate-500 mb-1">请选择要发起计量的主合同（数据池中仅正式·合同内子目可计量）：</div>
+              <div className="text-xs text-sky-600 bg-sky-50 border border-sky-100 rounded-lg px-3 py-1.5 mb-3">
+                仅主合同可发起计量；协同合同请在「计量数据池 · 协同合同」页签推送主合同后，由主合同统一计量
+              </div>
               <div className="grid grid-cols-1 gap-3">
-                {contracts.map(c => {
+                {contracts.filter(c => c.role === 'main').map(c => {
                   const items = pool.filter(p => p.contractId === c.id && canMeasure(p));
                   const unrep = items.reduce((s, p) => s + unreportedQty(p) * p.price, 0);
+                  const coopVal = items.reduce((s, p) => s + coopBuiltQty(p) * p.price, 0);
                   const on = contractId === c.id;
                   return (
                     <button key={c.id} onClick={() => setContractId(c.id)}
@@ -236,13 +255,17 @@ export default function StatementWizard({ onClose, onDone, initial, defaultContr
                         ? 'border-violet-500 bg-violet-50/60 shadow-sm' : 'border-slate-200 hover:border-violet-300 hover:bg-slate-50'}`}>
                       <div className="flex items-center justify-between">
                         <div>
-                          <div className="font-bold text-slate-800">{c.name}</div>
+                          <div className="font-bold text-slate-800">
+                            {c.name}
+                            <span className="ml-2 px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 text-[10px] font-semibold align-middle">主合同</span>
+                          </div>
                           <div className="text-xs text-slate-500 font-mono mt-0.5">
                             {c.code} · {c.projectName} · 合同额 {fmtMoney(c.amount)}
                           </div>
                           <div className="text-xs text-slate-500 mt-0.5">
                             业主：{c.ownerName}
                             {c.ownerType === 'jtou' ? '（交投·推送批复）' : '（其他·自闭环批复）'}
+                            {coopVal > 0 && <span className="text-cyan-600"> · 含协同单位完成 {fmtMoney(coopVal)}</span>}
                           </div>
                         </div>
                         <div className="text-right">
@@ -358,6 +381,11 @@ export default function StatementWizard({ onClose, onDone, initial, defaultContr
                                   超出未上报量 {fmtNum(unreportedQty(p))}
                                 </div>
                               )}
+                              {!l.manual && (l.ownQty !== undefined || l.coopQty !== undefined) && l.qty > 0 && (
+                                <div className="text-[10px] text-slate-400 leading-tight mt-0.5 whitespace-nowrap">
+                                  本组织 {fmtNum(l.ownQty || 0)}{(l.coopQty || 0) > 0 && <span className="text-cyan-600"> / 协同 {fmtNum(l.coopQty || 0)}</span>}
+                                </div>
+                              )}
                             </td>
                             <td className={`${M.td} text-right tabular-nums font-medium`}>{fmtMoney(l.amount)}</td>
                             <td className={M.td}>
@@ -435,7 +463,10 @@ export default function StatementWizard({ onClose, onDone, initial, defaultContr
                                 </td>
                                 <td className={`${M.td} text-right tabular-nums`}>{fmtNum(p.price)}</td>
                                 <td className={`${M.td} text-right tabular-nums`}>{fmtNum(p.totalQty)}</td>
-                                <td className={`${M.td} text-right tabular-nums`}>{fmtNum(builtQty(p))}</td>
+                                <td className={`${M.td} text-right tabular-nums`}>
+                                  {fmtNum(builtQty(p))}
+                                  {coopBuiltQty(p) > 0 && <div className="text-[10px] text-cyan-600 font-normal">本组织 {fmtNum(ownQty(p))} / 协同 {fmtNum(coopBuiltQty(p))}</div>}
+                                </td>
                                 <td className={`${M.td} text-right tabular-nums ${pb > 0 ? 'font-bold text-violet-700' : 'text-slate-400'}`}>
                                   {pb > 0 ? fmtNum(pb) : '—'}
                                 </td>
@@ -544,7 +575,10 @@ export default function StatementWizard({ onClose, onDone, initial, defaultContr
                             </td>
                             <td className={`${M.td} text-right tabular-nums`}>{fmtNum(p.price)}</td>
                             <td className={`${M.td} text-right tabular-nums`}>{fmtNum(p.totalQty)}</td>
-                            <td className={`${M.td} text-right tabular-nums`}>{fmtNum(builtQty(p))}</td>
+                            <td className={`${M.td} text-right tabular-nums`}>
+                              {fmtNum(builtQty(p))}
+                              {coopBuiltQty(p) > 0 && <div className="text-[10px] text-cyan-600 font-normal">本组织 {fmtNum(ownQty(p))} / 协同 {fmtNum(coopBuiltQty(p))}</div>}
+                            </td>
                             <td className={`${M.td} text-right tabular-nums font-medium text-orange-600`}>{fmtNum(unreportedQty(p))}</td>
                             <td className={M.td}>
                               {line ? (

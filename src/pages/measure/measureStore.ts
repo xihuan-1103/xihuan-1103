@@ -11,19 +11,23 @@
  */
 
 import type {
-  MeasureContract, MeasurePoolItem, MeasureTransferLog,
+  MeasureContract, MeasurePoolItem, MeasureTransferLog, CoopPushLog,
   MeasureStatement, MeasureStatementLine, MeasureStatementStatus,
   MeasureOrder, MeasureOrderLine, ReceivableOrder, PaymentRecord, StatementDeductions,
+  ReceivableDepositLine, ReceivableInvoiceLine, ReceivableInvoiceInfo,
+  ReceivablePlanLine, ReceivableAttachment,
 } from './types';
+import { fmtMoney } from './_shared';
 
-// v2：结构重构后使用新 key，避免与旧版 localStorage 数据冲突
-const KEY_CONTRACTS = 'md_measure2_contracts';
-const KEY_POOL = 'md_measure2_pool';
-const KEY_TRANSFERS = 'md_measure2_transfers';
-const KEY_STATEMENTS = 'md_measure2_statements';
-const KEY_ORDERS = 'md_measure2_orders';
-const KEY_RECEIVABLES = 'md_measure2_receivables';
-const KEY_PAYMENTS = 'md_measure2_payments';
+// v5：v3 引入主/协同合同，v4 扩充种子，v5 新增已批复计量单种子（创建应收单向导演示数据），升级避免旧 localStorage 冲突
+const KEY_CONTRACTS = 'md_measure5_contracts';
+const KEY_POOL = 'md_measure5_pool';
+const KEY_TRANSFERS = 'md_measure5_transfers';
+const KEY_COOP_PUSHES = 'md_measure5_coop_pushes';
+const KEY_STATEMENTS = 'md_measure5_statements';
+const KEY_ORDERS = 'md_measure5_orders';
+const KEY_RECEIVABLES = 'md_measure5_receivables';
+const KEY_PAYMENTS = 'md_measure5_payments';
 
 export function genId(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
@@ -79,17 +83,29 @@ export const CHAPTER_NAMES: Record<string, string> = {
 };
 export const chapterName = (ch: string) => CHAPTER_NAMES[ch] || '其他章节';
 
-// ==================== 计量口径计算（表5-1） ====================
+// ==================== 计量口径计算（表5-1 + 协同合同扩展） ====================
 
-/** 已施工量 = 报工 + 手动 + 临时转入 */
-export const builtQty = (p: MeasurePoolItem) =>
+/** 本组织完成量 = 报工 + 手动 + 临时转入 */
+export const ownQty = (p: MeasurePoolItem) =>
   (p.logQty || 0) + (p.manualQty || 0) + (p.transferInQty || 0);
+/** 协同单位完成量（主合同子目，由协同合同推送累计） */
+export const coopBuiltQty = (p: MeasurePoolItem) => p.coopQty || 0;
+/** 已施工量 = 本组织完成 + 协同单位完成 */
+export const builtQty = (p: MeasurePoolItem) => ownQty(p) + coopBuiltQty(p);
 /** 未上报计量量 = 已施工量 − 已上报计量量 */
 export const unreportedQty = (p: MeasurePoolItem) => builtQty(p) - (p.reportedQty || 0);
 /** 未批复计量量 = 已上报计量量 − 已批复计量量 */
 export const unapprovedQty = (p: MeasurePoolItem) => (p.reportedQty || 0) - (p.approvedQty || 0);
 /** 计量资格：正式 ∧ 合同内（缺一不可） */
 export const canMeasure = (p: MeasurePoolItem) => p.listType === 'formal' && p.contractAttr === 'in';
+/** 协同子目可推送量 = 本组织完成量 − 已推送到主合同的量（协同合同不直接生成计量单） */
+export const unpushedQty = (p: MeasurePoolItem) => ownQty(p) - (p.pushedQty || 0);
+/** 本组织未上报量（计量行来源构成拆分：历史申报优先消耗本组织量） */
+export const ownUnreportedQty = (p: MeasurePoolItem) =>
+  Math.max(0, Math.min(ownQty(p) - (p.reportedQty || 0), unreportedQty(p)));
+/** 协同单位未上报量 = 未上报计量量 − 本组织未上报量 */
+export const coopUnreportedQty = (p: MeasurePoolItem) =>
+  Math.max(0, unreportedQty(p) - ownUnreportedQty(p));
 
 /** 时间段内完成量（向导选量：选择某个时间段完成的清单子目） */
 export function periodBuiltQty(p: MeasurePoolItem, from?: string, to?: string): number {
@@ -175,23 +191,63 @@ export function netPayableOf(st: Pick<MeasureStatement, 'totalAmount' | 'deducti
 
 // ==================== 种子数据 ====================
 
-/** 计量模块引用的收入合同（交投 × 2 + 其他业主 × 1，体现 1 项目部 : N 合同） */
+/** 计量模块引用的收入合同（主合同 × 3 + 协同合同 × 1，体现 1 项目部 : N 合同）
+ *  主合同 = 当前单位（顺畅养护公司）为合同签订的主要单位；协同合同 = 当前单位为合同协同单位 */
 function seedContracts(): MeasureContract[] {
   return [
     {
       id: 'mc-hz01', code: 'JT-YH-2025-012', name: '杭州北段高速公路日常养护合同',
       ownerType: 'jtou', ownerName: '浙江交投高速公路运营管理有限公司', partyB: '顺畅养护公司',
       amount: 14063208, projectName: '杭州北项目部', startDate: '2025-01-01', endDate: '2027-12-31',
+      role: 'main', coopOrgName: '路畅交通工程有限公司',
     },
     {
       id: 'mc-hz02', code: 'JT-YH-2025-013', name: '杭州北段桥梁专项维修养护合同',
       ownerType: 'jtou', ownerName: '浙江交投高速公路运营管理有限公司', partyB: '顺畅养护公司',
       amount: 3280000, projectName: '杭州北项目部', startDate: '2025-06-01', endDate: '2026-12-31',
+      role: 'main',
     },
     {
       id: 'mc-hz03', code: 'DF-YH-2026-004', name: '湖州地方道路综合养护合同',
       ownerType: 'other', ownerName: '湖州市公路管理局', partyB: '顺畅养护公司',
       amount: 1860000, projectName: '湖州项目部', startDate: '2026-01-01', endDate: '2026-12-31',
+      role: 'main',
+    },
+    {
+      // 协同合同：当前单位（顺畅养护公司）为合同协同单位，主要单位为主合同 mc-hz01 签订单位；
+      // 协同合同只做查看确认 + 推送到主合同，不直接生成计量单
+      id: 'mc-xz01', code: 'XT-YH-2026-021', name: '杭州北段日常养护合同（路基工程协同施工）',
+      ownerType: 'jtou', ownerName: '浙江交投高速公路运营管理有限公司', partyB: '顺畅养护公司',
+      amount: 1280000, projectName: '杭州北项目部', startDate: '2026-03-01', endDate: '2027-12-31',
+      role: 'coop', mainContractId: 'mc-hz01', mainOrgName: '顺畅养护公司',
+    },
+    {
+      // 主合同：宁波东段（当前单位为主要单位，宏远路桥为协同施工单位）
+      id: 'mc-nb01', code: 'JT-YH-2026-031', name: '宁波东段高速公路日常养护合同',
+      ownerType: 'jtou', ownerName: '浙江交投高速公路运营管理有限公司', partyB: '顺畅养护公司',
+      amount: 9860000, projectName: '宁波项目部', startDate: '2026-01-01', endDate: '2028-12-31',
+      role: 'main', coopOrgName: '宏远路桥工程有限公司',
+    },
+    {
+      // 主合同：温州段桥梁专项（当前单位为主要单位，瓯江交建为协同施工单位）
+      id: 'mc-wz01', code: 'JT-YH-2026-035', name: '温州段高速公路桥梁专项维修养护合同',
+      ownerType: 'jtou', ownerName: '浙江交投高速公路运营管理有限公司', partyB: '顺畅养护公司',
+      amount: 4520000, projectName: '温州项目部', startDate: '2026-02-01', endDate: '2027-06-30',
+      role: 'main', coopOrgName: '瓯江交通建设有限公司',
+    },
+    {
+      // 协同合同：当前单位为宁波东段主合同 mc-nb01 的协同施工单位（路基·交安协同）
+      id: 'mc-xz02', code: 'XT-YH-2026-033', name: '宁波东段日常养护合同（路基·交安协同施工）',
+      ownerType: 'jtou', ownerName: '浙江交投高速公路运营管理有限公司', partyB: '顺畅养护公司',
+      amount: 960000, projectName: '宁波项目部', startDate: '2026-04-01', endDate: '2028-06-30',
+      role: 'coop', mainContractId: 'mc-nb01', mainOrgName: '顺畅养护公司',
+    },
+    {
+      // 协同合同：当前单位为温州段桥梁主合同 mc-wz01 的协同施工单位（下部结构协同）
+      id: 'mc-xz03', code: 'XT-YH-2026-038', name: '温州段桥梁专项维修合同（下部结构协同施工）',
+      ownerType: 'jtou', ownerName: '浙江交投高速公路运营管理有限公司', partyB: '顺畅养护公司',
+      amount: 750000, projectName: '温州项目部', startDate: '2026-05-01', endDate: '2027-03-31',
+      role: 'coop', mainContractId: 'mc-wz01', mainOrgName: '顺畅养护公司',
     },
   ];
 }
@@ -213,6 +269,16 @@ function seedPool(): MeasurePoolItem[] {
   const c2 = { contractId: 'mc-hz02', contractCode: 'JT-YH-2025-013', contractName: '杭州北段桥梁专项维修养护合同', projectName: '杭州北项目部' };
   // —— 合同3：湖州地方道路（其他业主）
   const c3 = { contractId: 'mc-hz03', contractCode: 'DF-YH-2026-004', contractName: '湖州地方道路综合养护合同', projectName: '湖州项目部' };
+  // —— 协同合同4：杭州北段日常养护（路基协同施工，当前单位为协同单位）
+  const c4 = { contractId: 'mc-xz01', contractCode: 'XT-YH-2026-021', contractName: '杭州北段日常养护合同（路基工程协同施工）', projectName: '杭州北项目部' };
+  // —— 合同5：宁波东段日常养护（主合同，宏远路桥协同）
+  const c5 = { contractId: 'mc-nb01', contractCode: 'JT-YH-2026-031', contractName: '宁波东段高速公路日常养护合同', projectName: '宁波项目部' };
+  // —— 合同6：温州段桥梁专项（主合同，瓯江交建协同）
+  const c6 = { contractId: 'mc-wz01', contractCode: 'JT-YH-2026-035', contractName: '温州段高速公路桥梁专项维修养护合同', projectName: '温州项目部' };
+  // —— 协同合同7：宁波东段日常养护（路基·交安协同施工，当前单位为协同单位）
+  const c7 = { contractId: 'mc-xz02', contractCode: 'XT-YH-2026-033', contractName: '宁波东段日常养护合同（路基·交安协同施工）', projectName: '宁波项目部' };
+  // —— 协同合同8：温州段桥梁专项（下部结构协同施工，当前单位为协同单位）
+  const c8 = { contractId: 'mc-xz03', contractCode: 'XT-YH-2026-038', contractName: '温州段桥梁专项维修合同（下部结构协同施工）', projectName: '温州项目部' };
 
   return [
     // ===== 合同1 · 100 章 总则 =====
@@ -268,10 +334,10 @@ function seedPool(): MeasurePoolItem[] {
     {
       id: 'pool-202-1', ...c1, code: '202-1', name: '路基排水沟清理修复', unit: 'm³', price: 120,
       listType: 'formal', contractAttr: 'in',
-      totalQty: 3200, logQty: 2100, manualQty: 180, transferInQty: 0,
+      totalQty: 3200, logQty: 2100, manualQty: 180, transferInQty: 0, coopQty: 400,
       completionBatches: [B('2026-06-11', 600), B('2026-07-18', 800), B('2026-08-25', 880)],
       transferredQty: 0, reportedQty: 1400, approvedQty: 1400, subcontractQty: 1200,
-      ...base,
+      remark: '协同单位（协同合同 XT-YH-2026-021）已完成 400 m³，与本组织完成量合并参与计量', ...base,
     },
     {
       id: 'pool-203-1', ...c1, code: '203-1', name: '边坡溜塌处理', unit: 'm³', price: 60,
@@ -302,10 +368,10 @@ function seedPool(): MeasurePoolItem[] {
     {
       id: 'pool-602-1', ...c1, code: '602-1', name: '波形护栏维修', unit: 'm', price: 210,
       listType: 'formal', contractAttr: 'in',
-      totalQty: 1800, logQty: 950, manualQty: 0, transferInQty: 0,
+      totalQty: 1800, logQty: 950, manualQty: 0, transferInQty: 0, coopQty: 120,
       completionBatches: [B('2026-07-08', 450), B('2026-09-05', 500)],
       transferredQty: 0, reportedQty: 450, approvedQty: 450, subcontractQty: 400,
-      ...base,
+      remark: '其中 120 m 为协同单位完成（经协同合同推送）', ...base,
     },
     {
       id: 'pool-603-1', ...c1, code: '603-1', name: '标志标线维护', unit: '项', price: 3800,
@@ -376,6 +442,123 @@ function seedPool(): MeasurePoolItem[] {
       transferredQty: 0, reportedQty: 4, approvedQty: 3.5, subcontractQty: 3,
       ...base,
     },
+    // ===== 协同合同4 · 路基协同施工（当前单位为协同单位；只做查看确认 + 推送到主合同 mc-hz01，不直接生成计量单） =====
+    {
+      id: 'pool-xz-202-1', ...c4, code: '202-1', name: '路基排水沟清理修复（协同施工）', unit: 'm³', price: 120,
+      listType: 'formal', contractAttr: 'in',
+      totalQty: 1200, logQty: 700, manualQty: 0, transferInQty: 0,
+      completionBatches: [B('2026-06-25', 300), B('2026-08-10', 400)],
+      transferredQty: 0, pushedQty: 400, reportedQty: 0, approvedQty: 0, subcontractQty: 0,
+      remark: '协同合同子目：已完工未推送量确认后推送主合同参与计量', ...base,
+    },
+    {
+      id: 'pool-xz-203-1', ...c4, code: '203-1', name: '边坡溜塌处理（协同施工）', unit: 'm³', price: 60,
+      listType: 'formal', contractAttr: 'in',
+      totalQty: 400, logQty: 220, manualQty: 30, transferInQty: 0,
+      completionBatches: [B('2026-07-15', 150), B('2026-09-01', 100)],
+      transferredQty: 0, pushedQty: 0, reportedQty: 0, approvedQty: 0, subcontractQty: 0,
+      ...base,
+    },
+    {
+      id: 'pool-xz-602-1', ...c4, code: '602-1', name: '波形护栏维修（协同施工）', unit: 'm', price: 210,
+      listType: 'formal', contractAttr: 'in',
+      totalQty: 600, logQty: 320, manualQty: 0, transferInQty: 0,
+      completionBatches: [B('2026-08-20', 320)],
+      transferredQty: 0, pushedQty: 120, reportedQty: 0, approvedQty: 0, subcontractQty: 0,
+      ...base,
+    },
+    // ===== 主合同5 · 宁波东段日常养护（200 路基 / 300 路面 / 600 交安 / 700 绿化） =====
+    {
+      id: 'pool-nb-202-1', ...c5, code: '202-1', name: '路基边沟浆砌修复', unit: 'm³', price: 110,
+      listType: 'formal', contractAttr: 'in',
+      totalQty: 2000, logQty: 900, manualQty: 0, transferInQty: 0, coopQty: 260,
+      completionBatches: [B('2026-06-14', 400), B('2026-07-30', 280), B('2026-09-10', 220)],
+      transferredQty: 0, reportedQty: 500, approvedQty: 500, subcontractQty: 400,
+      remark: '其中 260 m³ 为协同单位（宏远路桥，协同合同 XT-YH-2026-033）完成', ...base,
+    },
+    {
+      id: 'pool-nb-303-1', ...c5, code: '303-1', name: '沥青路面坑槽修补', unit: 'm²', price: 92,
+      listType: 'formal', contractAttr: 'in',
+      totalQty: 3600, logQty: 1500, manualQty: 0, transferInQty: 0,
+      completionBatches: [B('2026-07-06', 900), B('2026-08-18', 600)],
+      transferredQty: 0, reportedQty: 1000, approvedQty: 1000, subcontractQty: 800,
+      ...base,
+    },
+    {
+      id: 'pool-nb-602-1', ...c5, code: '602-1', name: '波形护栏更换', unit: 'm', price: 195,
+      listType: 'formal', contractAttr: 'in',
+      totalQty: 900, logQty: 300, manualQty: 0, transferInQty: 0, coopQty: 90,
+      completionBatches: [B('2026-07-28', 180), B('2026-09-08', 120)],
+      transferredQty: 0, reportedQty: 0, approvedQty: 0, subcontractQty: 0,
+      remark: '其中 90 m 为协同单位完成（经协同合同推送），下期与自施工量合并计量', ...base,
+    },
+    {
+      id: 'pool-nb-701-1', ...c5, code: '701-1', name: '中分带绿化修剪养护', unit: 'km', price: 10500,
+      listType: 'formal', contractAttr: 'in',
+      totalQty: 60, logQty: 25, manualQty: 0, transferInQty: 0,
+      completionBatches: [B('2026-06-30', 10), B('2026-08-31', 15)],
+      transferredQty: 0, reportedQty: 10, approvedQty: 10, subcontractQty: 8,
+      ...base,
+    },
+    // ===== 主合同6 · 温州段桥梁专项（400 桥梁与涵洞） =====
+    {
+      id: 'pool-wz-401-1', ...c6, code: '401-1', name: '桥梁伸缩缝更换', unit: 'm', price: 2480,
+      listType: 'formal', contractAttr: 'in',
+      totalQty: 500, logQty: 200, manualQty: 0, transferInQty: 0, coopQty: 60,
+      completionBatches: [B('2026-06-25', 90), B('2026-08-12', 110)],
+      transferredQty: 0, reportedQty: 150, approvedQty: 150, subcontractQty: 100,
+      remark: '其中 60 m 为协同单位（瓯江交建，协同合同 XT-YH-2026-038）完成', ...base,
+    },
+    {
+      id: 'pool-wz-403-1', ...c6, code: '403-1', name: '桥梁裂缝注浆处理', unit: 'm', price: 85,
+      listType: 'formal', contractAttr: 'in',
+      totalQty: 2600, logQty: 1200, manualQty: 0, transferInQty: 0,
+      completionBatches: [B('2026-07-16', 700), B('2026-09-03', 500)],
+      transferredQty: 0, reportedQty: 800, approvedQty: 800, subcontractQty: 600,
+      ...base,
+    },
+    // ===== 协同合同7 · 宁波东段（路基·交安协同施工，只做查看确认 + 推送到主合同 mc-nb01） =====
+    {
+      id: 'pool-xz2-202-1', ...c7, code: '202-1', name: '路基边沟浆砌修复（协同施工）', unit: 'm³', price: 110,
+      listType: 'formal', contractAttr: 'in',
+      totalQty: 800, logQty: 500, manualQty: 0, transferInQty: 0,
+      completionBatches: [B('2026-06-20', 220), B('2026-08-15', 280)],
+      transferredQty: 0, pushedQty: 260, reportedQty: 0, approvedQty: 0, subcontractQty: 0,
+      remark: '已推送 260 m³ 至主合同 JT-YH-2026-031·202-1，剩余未推送量确认后可继续推送', ...base,
+    },
+    {
+      id: 'pool-xz2-203-1', ...c7, code: '203-1', name: '边坡溜塌处理（协同施工）', unit: 'm³', price: 75,
+      listType: 'formal', contractAttr: 'in',
+      totalQty: 500, logQty: 240, manualQty: 0, transferInQty: 0,
+      completionBatches: [B('2026-07-25', 140), B('2026-09-14', 100)],
+      transferredQty: 0, pushedQty: 0, reportedQty: 0, approvedQty: 0, subcontractQty: 0,
+      remark: '已完工 240 m³ 尚未推送，确认后推送主合同参与计量', ...base,
+    },
+    {
+      id: 'pool-xz2-602-1', ...c7, code: '602-1', name: '波形护栏更换（协同施工）', unit: 'm', price: 195,
+      listType: 'formal', contractAttr: 'in',
+      totalQty: 400, logQty: 160, manualQty: 0, transferInQty: 0,
+      completionBatches: [B('2026-08-08', 160)],
+      transferredQty: 0, pushedQty: 90, reportedQty: 0, approvedQty: 0, subcontractQty: 0,
+      ...base,
+    },
+    // ===== 协同合同8 · 温州段桥梁（下部结构协同施工，只做查看确认 + 推送到主合同 mc-wz01） =====
+    {
+      id: 'pool-xz3-401-1', ...c8, code: '401-1', name: '桥梁伸缩缝更换（协同施工）', unit: 'm', price: 2480,
+      listType: 'formal', contractAttr: 'in',
+      totalQty: 200, logQty: 100, manualQty: 0, transferInQty: 0,
+      completionBatches: [B('2026-07-08', 40), B('2026-09-02', 60)],
+      transferredQty: 0, pushedQty: 60, reportedQty: 0, approvedQty: 0, subcontractQty: 0,
+      ...base,
+    },
+    {
+      id: 'pool-xz3-405-1', ...c8, code: '405-1', name: '桥墩加固（协同施工）', unit: 'm³', price: 310,
+      listType: 'formal', contractAttr: 'in',
+      totalQty: 300, logQty: 130, manualQty: 0, transferInQty: 0,
+      completionBatches: [B('2026-08-05', 60), B('2026-09-20', 70)],
+      transferredQty: 0, pushedQty: 0, reportedQty: 0, approvedQty: 0, subcontractQty: 0,
+      remark: '已完工 130 m³ 尚未推送，确认后推送主合同参与计量', ...base,
+    },
   ];
 }
 
@@ -385,6 +568,52 @@ function seedTransfers(): MeasureTransferLog[] {
       id: 'tr1', fromItemId: 'pool-tmp-001', fromCode: 'TMP-001', fromName: '临时路面维修(应急)',
       toItemId: 'pool-303-1', toCode: '303-1', toName: '沥青路面坑槽修补',
       qty: 300, operator: '陈技术', createdAt: '2026-08-20 15:30',
+    },
+  ];
+}
+
+/** 协同推送种子：协同合同 XT-YH-2026-021 / XT-YH-2026-033 / XT-YH-2026-038 已推送到各自关联主合同 */
+function seedCoopPushes(): CoopPushLog[] {
+  return [
+    {
+      id: 'cp1',
+      fromContractId: 'mc-xz01', fromContractCode: 'XT-YH-2026-021',
+      fromItemId: 'pool-xz-202-1', fromCode: '202-1', fromName: '路基排水沟清理修复（协同施工）',
+      toContractId: 'mc-hz01', toContractCode: 'JT-YH-2025-012',
+      toItemId: 'pool-202-1', toCode: '202-1', toName: '路基排水沟清理修复',
+      qty: 400, operator: '陈技术', createdAt: '2026-09-05 10:20',
+    },
+    {
+      id: 'cp2',
+      fromContractId: 'mc-xz01', fromContractCode: 'XT-YH-2026-021',
+      fromItemId: 'pool-xz-602-1', fromCode: '602-1', fromName: '波形护栏维修（协同施工）',
+      toContractId: 'mc-hz01', toContractCode: 'JT-YH-2025-012',
+      toItemId: 'pool-602-1', toCode: '602-1', toName: '波形护栏维修',
+      qty: 120, operator: '陈技术', createdAt: '2026-09-12 14:05',
+    },
+    {
+      id: 'cp3',
+      fromContractId: 'mc-xz02', fromContractCode: 'XT-YH-2026-033',
+      fromItemId: 'pool-xz2-202-1', fromCode: '202-1', fromName: '路基边沟浆砌修复（协同施工）',
+      toContractId: 'mc-nb01', toContractCode: 'JT-YH-2026-031',
+      toItemId: 'pool-nb-202-1', toCode: '202-1', toName: '路基边沟浆砌修复',
+      qty: 260, operator: '陈技术', createdAt: '2026-09-18 09:40',
+    },
+    {
+      id: 'cp4',
+      fromContractId: 'mc-xz02', fromContractCode: 'XT-YH-2026-033',
+      fromItemId: 'pool-xz2-602-1', fromCode: '602-1', fromName: '波形护栏更换（协同施工）',
+      toContractId: 'mc-nb01', toContractCode: 'JT-YH-2026-031',
+      toItemId: 'pool-nb-602-1', toCode: '602-1', toName: '波形护栏更换',
+      qty: 90, operator: '陈技术', createdAt: '2026-09-20 16:25',
+    },
+    {
+      id: 'cp5',
+      fromContractId: 'mc-xz03', fromContractCode: 'XT-YH-2026-038',
+      fromItemId: 'pool-xz3-401-1', fromCode: '401-1', fromName: '桥梁伸缩缝更换（协同施工）',
+      toContractId: 'mc-wz01', toContractCode: 'JT-YH-2026-035',
+      toItemId: 'pool-wz-401-1', toCode: '401-1', toName: '桥梁伸缩缝更换',
+      qty: 60, operator: '陈技术', createdAt: '2026-09-25 11:15',
     },
   ];
 }
@@ -497,6 +726,43 @@ function seedOrders(): MeasureOrder[] {
       declaredAmount: 166156, approvedAmount: 166156, deduction: 0,
       status: 'effective', archived: false, approveTime: '2026-08-08 16:20', createdAt: '2026-08-08 16:21',
     },
+    {
+      // 宁波东段第 2 期（已批复、未创建应收单 → 可在「创建应收单」向导中选中）
+      id: 'mo-nb-1', code: 'JLD-202609-001', statementId: '', statementCode: 'JL-202609-001',
+      period: '2026-09', periodNo: 2, periodEnd: '2026-09-30',
+      contractId: 'mc-nb01', contractCode: 'JT-YH-2026-031', contractName: '宁波东段高速公路日常养护合同',
+      projectName: '宁波项目部', ownerType: 'jtou', ownerName: '浙江交投高速公路运营管理有限公司',
+      lines: [
+        {
+          id: 'mol-nb-1', chapter: '300', code: '303-1', name: '沥青路面坑槽修补', unit: 'm²', price: 92, contractQty: 3600,
+          declaredQty: 600, approvedQty: 600, declaredAmount: 55200, approvedAmount: 55200,
+          prevCumQty: 400, prevCumAmount: 36800,
+        },
+        {
+          id: 'mol-nb-2', chapter: '200', code: '202-1', name: '路基边沟浆砌修复', unit: 'm³', price: 110, contractQty: 2000,
+          declaredQty: 500, approvedQty: 450, declaredAmount: 55000, approvedAmount: 49500,
+          prevCumQty: 0, prevCumAmount: 0,
+        },
+      ],
+      declaredAmount: 110200, approvedAmount: 104700, deduction: 5500,
+      status: 'effective', archived: false, approveTime: '2026-09-26 10:30', createdAt: '2026-09-26 10:31',
+    },
+    {
+      // 温州段桥梁第 1 期（已批复、未创建应收单）
+      id: 'mo-wz-1', code: 'JLD-202609-002', statementId: '', statementCode: 'JL-202609-002',
+      period: '2026-09', periodNo: 1, periodEnd: '2026-09-30',
+      contractId: 'mc-wz01', contractCode: 'JT-YH-2026-035', contractName: '温州段高速公路桥梁专项维修养护合同',
+      projectName: '温州项目部', ownerType: 'jtou', ownerName: '浙江交投高速公路运营管理有限公司',
+      lines: [
+        {
+          id: 'mol-wz-1', chapter: '400', code: '401-1', name: '桥梁伸缩缝更换', unit: 'm', price: 2480, contractQty: 500,
+          declaredQty: 150, approvedQty: 150, declaredAmount: 372000, approvedAmount: 372000,
+          prevCumQty: 0, prevCumAmount: 0,
+        },
+      ],
+      declaredAmount: 372000, approvedAmount: 372000, deduction: 0,
+      status: 'effective', archived: false, approveTime: '2026-09-28 14:10', createdAt: '2026-09-28 14:11',
+    },
   ];
 }
 
@@ -533,6 +799,7 @@ function seedPayments(): PaymentRecord[] {
 export const getMeasureContracts = () => load<MeasureContract[]>(KEY_CONTRACTS, seedContracts);
 export const getPool = () => load<MeasurePoolItem[]>(KEY_POOL, seedPool);
 export const getTransfers = () => load<MeasureTransferLog[]>(KEY_TRANSFERS, seedTransfers);
+export const getCoopPushes = () => load<CoopPushLog[]>(KEY_COOP_PUSHES, seedCoopPushes);
 export const getStatements = () => load<MeasureStatement[]>(KEY_STATEMENTS, seedStatements);
 export const getOrders = () => load<MeasureOrder[]>(KEY_ORDERS, seedOrders);
 export const getReceivables = () => load<ReceivableOrder[]>(KEY_RECEIVABLES, seedReceivables);
@@ -542,6 +809,81 @@ export const getPayments = () => load<PaymentRecord[]>(KEY_PAYMENTS, seedPayment
 
 const savePool = (v: MeasurePoolItem[]) => save(KEY_POOL, v);
 const saveTransfers = (v: MeasureTransferLog[]) => save(KEY_TRANSFERS, v);
+const saveCoopPushes = (v: CoopPushLog[]) => save(KEY_COOP_PUSHES, v);
+
+/** 协同合同子目 → 主合同子目 推送（协同合同不直接生成计量单，推送后计入主合同「协同单位完成量」）
+ *  源：协同合同（role=coop）子目；目标：源合同关联主合同下 正式·合同内 子目 */
+export function pushCoopToMain(fromId: string, toId: string, qty: number, operator: string): string | null {
+  if (qty <= 0) return '推送数量必须大于 0';
+  const contracts = getMeasureContracts();
+  const list = getPool();
+  const from = list.find(p => p.id === fromId);
+  const to = list.find(p => p.id === toId);
+  if (!from || !to) return '未找到对应子目';
+  const fromContract = contracts.find(c => c.id === from.contractId);
+  if (fromContract?.role !== 'coop') return '仅协同合同子目可推送到主合同';
+  const toContract = contracts.find(c => c.id === to.contractId);
+  if (toContract?.role !== 'main') return '目标子目必须属于主合同';
+  if (fromContract.mainContractId && to.contractId !== fromContract.mainContractId) {
+    const main = contracts.find(c => c.id === fromContract.mainContractId);
+    return `目标子目须属于该协同合同关联的主合同（${main?.code || fromContract.mainContractId}）`;
+  }
+  if (!canMeasure(to)) return '目标子目必须是正式·合同内清单';
+  const available = unpushedQty(from);
+  if (qty > available) return `推送量超出源子目可推送量（${available} ${from.unit}）`;
+
+  const now = nowStr();
+  list[list.indexOf(from)] = { ...from, pushedQty: (from.pushedQty || 0) + qty, updatedAt: now };
+  list[list.indexOf(to)] = { ...to, coopQty: (to.coopQty || 0) + qty, updatedAt: now };
+  savePool(list);
+
+  saveCoopPushes([{
+    id: genId('cp'),
+    fromContractId: from.contractId, fromContractCode: from.contractCode,
+    fromItemId: from.id, fromCode: from.code, fromName: from.name,
+    toContractId: to.contractId, toContractCode: to.contractCode,
+    toItemId: to.id, toCode: to.code, toName: to.name,
+    qty, operator, createdAt: now,
+  }, ...getCoopPushes()]);
+  return null; // 无错误
+}
+
+/** 协同合同「全部推送」结果 */
+export interface CoopPushAllResult {
+  pushedCount: number;                        // 成功推送的子目数
+  totalQty: number;                           // 推送总量
+  totalValue: number;                         // 推送总价值（按源子目单价）
+  skipped: { code: string; name: string; reason: string }[];  // 跳过明细
+}
+
+/** 协同合同「全部推送」（合同行一键操作）：将该协同合同下所有有未推送量的可计量子目，
+ *  按同子目号匹配推送到关联主合同下 正式·合同内 子目；匹配不到同子目号目标的子目跳过（不自动选择其他子目）。
+ *  返回 null 表示无可推送子目 / 合同不合法。 */
+export function pushAllCoopToMain(contractId: string, operator: string): CoopPushAllResult | null {
+  const contracts = getMeasureContracts();
+  const contract = contracts.find(c => c.id === contractId);
+  if (!contract || contract.role !== 'coop' || !contract.mainContractId) return null;
+  const list = getPool();
+  const mainItems = list.filter(p => p.contractId === contract.mainContractId && canMeasure(p));
+  const sources = list.filter(p => p.contractId === contractId && canMeasure(p) && unpushedQty(p) > 0);
+  if (sources.length === 0) return null;
+
+  const result: CoopPushAllResult = { pushedCount: 0, totalQty: 0, totalValue: 0, skipped: [] };
+  for (const src of sources) {
+    const target = mainItems.find(t => t.code === src.code);
+    if (!target) {
+      result.skipped.push({ code: src.code, name: src.name, reason: '关联主合同下无同子目号的正式·合同内子目' });
+      continue;
+    }
+    const qty = unpushedQty(src); // 推送前快照（推送后源子目未推送量归零）
+    const err = pushCoopToMain(src.id, target.id, qty, operator);
+    if (err) { result.skipped.push({ code: src.code, name: src.name, reason: err }); continue; }
+    result.pushedCount += 1;
+    result.totalQty += qty;
+    result.totalValue += qty * src.price;
+  }
+  return result;
+}
 
 export function upsertPoolItem(item: MeasurePoolItem) {
   const list = getPool();
@@ -843,6 +1185,122 @@ export function createReceivableFromOrder(orderId: string): { ok: boolean; msg: 
   receivables.unshift(ro);
   saveReceivables(receivables);
   return { ok: true, msg: `应收单 ${ro.code} 已生成（待推送）`, ro };
+}
+
+/** 「创建应收单」向导表单提交 */
+export interface ReceivableFormInput {
+  orderIds: string[];               // 选中的已批复且未创建应收单的计量单（同合同）
+  docDate: string;                  // 单据日期 *
+  bizDate: string;                  // 业务日期 *
+  regCode: string;                  // 在册单据编号 *
+  dept: string;                     // 部门 *
+  bizContent: string;              // 业务内容 *
+  agingStart?: string;              // 账龄起算日
+  invoiceReceived: boolean;         // 是否收票 *
+  payee?: string;                   // 收款人
+  curChange: number;                // 本期变更
+  curMaterialAdj: number;           // 本期材料调差
+  curPenalty: number;               // 本期罚款
+  curAdvanceDeduct: number;         // 本期应扣预付款
+  curPayableDeduct: number;         // 本期应扣待付扣回
+  curOtherAdvanceDeduct: number;    // 本期其他预付款扣回
+  curInvoiceAmount: number;         // 本期开票金额 *
+  deposits: Omit<ReceivableDepositLine, 'id'>[];          // 保证金明细
+  invoices: Omit<ReceivableInvoiceLine, 'id'>[];           // 开票明细
+  invoiceInfo: ReceivableInvoiceInfo;                       // 发票其他信息
+  plans: Omit<ReceivablePlanLine, 'id'>[];                 // 收款计划
+  attachments: Omit<ReceivableAttachment, 'id'>[];         // 附件
+  remark?: string;
+}
+
+/** 创建应收单（「创建应收单」向导提交）：
+ *  校验计量单已批复（effective）且未创建应收单；金额口径按工程结算应收单自动汇总 */
+export function createReceivableWithForm(input: ReceivableFormInput): { ok: boolean; msg: string; ro?: ReceivableOrder } {
+  if (input.orderIds.length === 0) return { ok: false, msg: '请选择计量单' };
+  if (!input.docDate || !input.bizDate) return { ok: false, msg: '请填写单据日期与业务日期' };
+  if (!input.regCode.trim()) return { ok: false, msg: '请填写在册单据编号' };
+  if (!input.dept.trim()) return { ok: false, msg: '请填写部门' };
+  if (!input.bizContent.trim()) return { ok: false, msg: '请填写业务内容' };
+  if (!(input.curInvoiceAmount > 0)) return { ok: false, msg: '本期开票金额必须大于 0' };
+
+  const orders = getOrders();
+  const receivables = getReceivables();
+  const chosen: MeasureOrder[] = [];
+  for (const oid of input.orderIds) {
+    const o = orders.find(x => x.id === oid);
+    if (!o) return { ok: false, msg: `计量凭证 ${oid} 不存在` };
+    if (o.status !== 'effective') return { ok: false, msg: `计量单 ${o.code} 未批复，不可创建应收单` };
+    if (receivables.some(r => (r.measureOrderIds || [r.measureOrderId]).includes(o.id))) {
+      return { ok: false, msg: `计量单 ${o.code} 已创建应收单，请勿重复创建` };
+    }
+    chosen.push(o);
+  }
+  const cid = chosen[0].contractId;
+  if (chosen.some(o => o.contractId !== cid)) return { ok: false, msg: '所选计量单须属于同一合同' };
+
+  const contract = getMeasureContracts().find(c => c.id === cid)!;
+  // 上期末累计 = 该合同其他已批复计量单（不含本次所选）批复金额合计
+  const prevCum = orders
+    .filter(o => o.contractId === cid && o.status === 'effective' && !input.orderIds.includes(o.id))
+    .reduce((s, o) => s + o.approvedAmount, 0);
+  const curMeasure = chosen.reduce((s, o) => s + o.approvedAmount, 0);
+  const deposit = input.deposits.reduce((s, d) => s + (d.amount || 0), 0); // 负数扣留
+  const collectible = curMeasure + (input.curChange || 0) + (input.curMaterialAdj || 0)
+    - (input.curPenalty || 0) - (input.curAdvanceDeduct || 0) - (input.curPayableDeduct || 0)
+    - (input.curOtherAdvanceDeduct || 0) + deposit;
+
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const ym = `${now.getFullYear()}${pad(now.getMonth() + 1)}`;
+  const dt = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
+  const ro: ReceivableOrder = {
+    id: genId('ro'),
+    code: `YSD-${ym}-${String(receivables.length + 1).padStart(3, '0')}`,
+    measureOrderId: chosen[0].id,
+    measureOrderCode: chosen.length === 1 ? chosen[0].code : `${chosen[0].code} 等${chosen.length}张`,
+    period: chosen.length === 1 ? chosen[0].period : `${chosen[chosen.length - 1].period}（${chosen.length}期合并）`,
+    contractId: cid, contractCode: contract.code, contractName: contract.name,
+    projectName: contract.projectName, ownerType: contract.ownerType, ownerName: contract.ownerName,
+    amount: Math.round(collectible * 100) / 100,
+    status: 'draft',
+    remark: input.remark || '经交工计量系统应收单功能填报，推送交投财务共享',
+    createdAt: nowStr(),
+    // 工程结算应收单填报字段
+    docDate: input.docDate, bizDate: input.bizDate,
+    sysCode: `JLGL-YSDN-${dt}${pad(now.getHours())}${pad(now.getMinutes())}001`,
+    regCode: input.regCode.trim(), dept: input.dept.trim(),
+    settleOrg: `顺畅养护公司${contract.projectName}`,
+    invoiceApplyOrg: `顺畅养护公司${contract.projectName}`,
+    accountOrg: `顺畅养护公司${contract.projectName}`,
+    collectOrg: `顺畅养护公司${contract.projectName}`,
+    bizContent: input.bizContent.trim(),
+    agingStart: input.agingStart || undefined,
+    invoiceReceived: input.invoiceReceived,
+    payee: input.payee || undefined,
+    currency: 'CNY',
+    measureOrderIds: input.orderIds,
+    curMeasureAmount: curMeasure,
+    prevCumMeasureAmount: prevCum,
+    endCumMeasureAmount: prevCum + curMeasure,
+    curChange: input.curChange || 0,
+    curMaterialAdj: input.curMaterialAdj || 0,
+    curPenalty: input.curPenalty || 0,
+    curAdvanceDeduct: input.curAdvanceDeduct || 0,
+    curPayableDeduct: input.curPayableDeduct || 0,
+    curOtherAdvanceDeduct: input.curOtherAdvanceDeduct || 0,
+    curDeposit: deposit,
+    curInvoiceAmount: input.curInvoiceAmount,
+    curCollectible: Math.round(collectible * 100) / 100,
+    settleBatch: chosen.map(o => o.periodNo).sort((a, b) => a - b).join('、'),
+    deposits: input.deposits.map(d => ({ ...d, id: genId('dep') })),
+    invoices: input.invoices.map(v => ({ ...v, id: genId('inv') })),
+    invoiceInfo: input.invoiceInfo,
+    plans: input.plans.map(p => ({ ...p, id: genId('pl') })),
+    attachments: input.attachments.map(a => ({ ...a, id: genId('att') })),
+  };
+  receivables.unshift(ro);
+  saveReceivables(receivables);
+  return { ok: true, msg: `应收单 ${ro.code} 已创建（待推送），本期可收金额 ${fmtMoney(collectible)}`, ro };
 }
 
 /** 推送应收单：交工计量系统填报 → 交投财务共享（draft → pushed） */
