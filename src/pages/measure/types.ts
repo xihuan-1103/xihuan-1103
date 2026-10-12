@@ -137,6 +137,7 @@ export interface StatementAssessLine {
   kind: 'deduction' | 'reward';    // 扣 / 奖
   prevCum: number;                  // 到上期末完成金额（历史累计，自动）
   cur: number;                      // 本期完成金额（可调整）
+  approvedCur?: number;             // 批复计量金额（批复时维护，缺省 = 本期完成金额）
 }
 
 // ==================== 计量单（原计量台账） ====================
@@ -204,6 +205,7 @@ export interface MeasureStatement {
   totalAmount: number;           // 本期完成金额合计（图一「合计」）
   safeFeeAmount: number;         // 其中：安全生产费
   deductions?: StatementDeductions;   // 扣款/调整手填项
+  deductionsApproved?: Partial<Record<keyof StatementDeductions, number>>;   // 老单固定扣款字段批复计量金额（字段 key → 批复值，批复时维护）
   status: MeasureStatementStatus;
   // 批复结果
   approvedAmount?: number;       // 批复金额（实际支付）

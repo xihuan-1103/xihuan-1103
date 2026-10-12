@@ -4,12 +4,26 @@
  *          + 底部考核/扣款选择项（项目来源：基础信息配置 > 考核奖励/扣款项维护）+ 实际支付金额
  *  - 图二：章节子目明细表（按章节分组：项目编号/名称/单位/合同数量/累计完成占合同%/期末/上期末/本期）
  *  - editable=true 时考核/扣款项目可从配置项选择并调整本期完成金额（向导第三步），否则只读预览
+ *  - approve 传入时为批复维护模式（批复管理）：直接在原计量单上维护批复值 ——
+ *    图二明细行在「上报计量量」后加「批复计量量」列（可调，批复金额自动），
+ *    考核/扣款表加「批复计量金额」列（新单按选择行、老单按固定扣款回退行，均可调）；
+ *    已批复详情以只读方式回显批复列
  */
 
 import React, { useState } from 'react';
 import { M, Input, fmtNum, fmtMoney } from './_shared';
 import type { MeasureStatement, MeasureStatementLine, StatementDeductions, StatementAssessLine } from './types';
-import { aggregateByChapter, netPayableOf, chapterName, getAssessItems, assessPrevCum } from './measureStore';
+import { aggregateByChapter, netPayableOf, chapterName, getAssessItems, assessPrevCum, deductionsNet } from './measureStore';
+
+/** 批复维护控制（批复管理：直接在原计量单上维护批复值） */
+export interface ApproveControl {
+  lineQtys: Record<string, number>;               // 行 id → 批复计量量（缺省 = 上报计量量）
+  onLineQtyChange: (id: string, v: number) => void;
+  assessApproved: Record<string, number>;          // 考核项 itemId → 批复计量金额（缺省 = 本期完成金额）
+  onAssessApprovedChange: (itemId: string, v: number) => void;
+  dedApproved: Record<string, number>;             // 老单固定扣款字段 key → 批复计量金额（缺省 = 申报字段值）
+  onDedApprovedChange: (key: string, v: number) => void;
+}
 
 /** 报表表格边框样式（打印风格，实线边框） */
 const BC = 'border border-slate-400';
@@ -36,11 +50,12 @@ const r2 = (n: number) => Math.round(n * 100) / 100;
 
 /* ==================== 图一：章节汇总表 ==================== */
 
-export function ChapterSummaryTable({ st, editable = false, onDeductionsChange, onAssessLinesChange }: {
+export function ChapterSummaryTable({ st, editable = false, onDeductionsChange, onAssessLinesChange, approve }: {
   st: MeasureStatement;
   editable?: boolean;
   onDeductionsChange?: (d: StatementDeductions) => void;
   onAssessLinesChange?: (ls: StatementAssessLine[]) => void;
+  approve?: ApproveControl;
 }) {
   const aggs = aggregateByChapter(st.lines);
   const d = st.deductions || {};
@@ -77,6 +92,17 @@ export function ChapterSummaryTable({ st, editable = false, onDeductionsChange, 
   const updateAssessLine = (itemId: string, v: string) =>
     setAssess(assessLines.map(l => l.itemId === itemId ? { ...l, cur: Number(v) || 0 } : l));
   const removeAssessLine = (itemId: string) => setAssess(assessLines.filter(l => l.itemId !== itemId));
+
+  /* ===== 批复口径（批复管理：直接在原计量单上维护批复值）===== */
+  const showAssessApproved = (!!approve || st.status === 'approved') && assessLines.length > 0;
+  const showDedApproved = (!!approve || st.status === 'approved') && assessLines.length === 0;
+  // 批复后实际支付金额 = 行批复合计 + 价格调整 + 批复考核净额（老单无考核选择行时按固定扣款字段批复值）
+  const effAssess = approve
+    ? assessLines.map(l => ({ ...l, cur: approve.assessApproved[l.itemId] ?? l.cur }))
+    : assessLines;
+  const lineTotalApproved = r2(st.lines.reduce((s, l) => s + (approve?.lineQtys[l.id] ?? l.qty) * l.price, 0));
+  const effDedApproved = approve ? approve.dedApproved : st.deductionsApproved;
+  const approvedNet = r2(lineTotalApproved + deductionsNet(d, effAssess.length ? effAssess : undefined, approve?.assessApproved, effDedApproved));
 
   return (
     <div>
@@ -225,10 +251,11 @@ export function ChapterSummaryTable({ st, editable = false, onDeductionsChange, 
                 <th className={RTH}>到本期末完成金额(元)</th>
                 <th className={RTH}>到上期末完成金额(元)</th>
                 <th className={RTH}>本期完成金额(元)</th>
+                {showAssessApproved || showDedApproved ? <th className={RTH}>批复计量金额(元)</th> : null}
               </tr>
             </thead>
             <tbody>
-              {/* 新计量单：显示第三步选择的考核/扣款项目快照行 */}
+              {/* 新计量单：显示第三步选择的考核/扣款项目快照行；批复模式可在行上直接维护批复计量金额 */}
               {(st.assessLines?.length ? st.assessLines : null)?.map(l => (
                 <tr key={l.itemId} className="hover:bg-violet-50/40">
                   <td className={RTD}>
@@ -240,9 +267,18 @@ export function ChapterSummaryTable({ st, editable = false, onDeductionsChange, 
                   <td className={RTD_R}>{fmtMoney(r2(l.prevCum + l.cur))}</td>
                   <td className={RTD_R}>{fmtMoney(l.prevCum)}</td>
                   <td className={`${RTD_R} font-medium`}>{fmtMoney(l.cur)}</td>
+                  {showAssessApproved && (
+                    <td className={RTD_R}>
+                      {approve
+                        ? <input type="number" step="0.01" min={0} value={approve.assessApproved[l.itemId] ?? l.cur}
+                            onChange={e => approve.onAssessApprovedChange(l.itemId, Number(e.target.value) || 0)}
+                            className="w-36 px-2 py-1 border border-slate-300 rounded text-right text-sm tabular-nums focus:ring-1 focus:ring-emerald-500 outline-none" />
+                        : <span className="font-medium text-emerald-700">{fmtMoney(l.approvedCur ?? l.cur)}</span>}
+                    </td>
+                  )}
                 </tr>
               ))}
-              {/* 老计量单回退：固定扣款字段只读展示 */}
+              {/* 老计量单回退：固定扣款字段展示（批复模式可在行上直接维护批复计量金额） */}
               {st.assessLines?.length ? null : DEDUCTION_FIELDS.map(f => (
                 <tr key={f.key} className="hover:bg-violet-50/40">
                   <td className={RTD}>
@@ -253,6 +289,15 @@ export function ChapterSummaryTable({ st, editable = false, onDeductionsChange, 
                   <td className={RTD_R}>—</td>
                   <td className={RTD_R}>—</td>
                   <td className={RTD_R}>{fmtMoney((d as any)[f.key] || 0)}</td>
+                  {showDedApproved && (
+                    <td className={RTD_R}>
+                      {approve
+                        ? <input type="number" step="0.01" min={0} value={approve.dedApproved[f.key] ?? ((d as any)[f.key] || 0)}
+                            onChange={e => approve.onDedApprovedChange(f.key, Number(e.target.value) || 0)}
+                            className="w-36 px-2 py-1 border border-slate-300 rounded text-right text-sm tabular-nums focus:ring-1 focus:ring-emerald-500 outline-none" />
+                        : <span className="font-medium text-emerald-700">{fmtMoney(st.deductionsApproved?.[f.key] ?? ((d as any)[f.key] || 0))}</span>}
+                    </td>
+                  )}
                 </tr>
               ))}
               <tr className="bg-violet-50 font-bold">
@@ -260,9 +305,19 @@ export function ChapterSummaryTable({ st, editable = false, onDeductionsChange, 
                 <td className={RTD_R}>—</td>
                 <td className={RTD_R}>—</td>
                 <td className={`${RTD_R} text-violet-700 text-base`}>{fmtMoney(net)}</td>
+                {(showAssessApproved || showDedApproved) && (
+                  <td className={`${RTD_R} text-emerald-700 text-base`}>
+                    {approve ? fmtMoney(approvedNet) : fmtMoney(st.approvedAmount ?? approvedNet)}
+                  </td>
+                )}
               </tr>
             </tbody>
           </table>
+        )}
+        {approve && (
+          <div className="mt-1.5 text-[11px] text-slate-400">
+            批复后实际支付金额 = 行批复合计 + 价格调整 + Σ奖励批复 − Σ扣款批复 = <b className="text-emerald-600">{fmtMoney(approvedNet)}</b>（默认带入最终批复金额，可在弹窗底部批复维护区调整）。
+          </div>
         )}
       </div>
     </div>
@@ -280,13 +335,18 @@ function lineDerived(l: MeasureStatementLine) {
   return { endQty, endAmount, pct };
 }
 
-export function ChapterDetailTable({ chapter, chapterLabel, lines, st }: {
+export function ChapterDetailTable({ chapter, chapterLabel, lines, st, approve, showApproved }: {
   chapter: string;
   chapterLabel: string;
   lines: MeasureStatementLine[];
   st: Pick<MeasureStatement, 'code' | 'periodNo' | 'periodEnd'>;
+  approve?: ApproveControl;
+  showApproved?: boolean;   // 显示批复列（批复维护中可编辑 / 已批复详情只读回显）
 }) {
   const sum = (f: (l: MeasureStatementLine) => number) => r2(lines.reduce((s, l) => s + f(l), 0));
+  /** 行批复计量量：批复维护中取编辑值（默认 = 上报计量量），已批复详情取存档值 */
+  const approvedQtyOf = (l: MeasureStatementLine) =>
+    approve ? (approve.lineQtys[l.id] ?? l.qty) : (l.approvedQty ?? l.qty);
   return (
     <div className="mb-5">
       {/* 章节表头信息（图二样式） */}
@@ -307,6 +367,7 @@ export function ChapterDetailTable({ chapter, chapterLabel, lines, st }: {
             <th className={RTH} colSpan={2}>到本期末完成</th>
             <th className={RTH} colSpan={2}>到上期末完成</th>
             <th className={RTH} colSpan={2}>本期完成</th>
+            {showApproved && <th className={RTH} colSpan={2}>批复</th>}
           </tr>
           <tr>
             <th className={RTH}>单价(元)</th>
@@ -316,15 +377,21 @@ export function ChapterDetailTable({ chapter, chapterLabel, lines, st }: {
             <th className={RTH}>金额(元)</th>
             <th className={RTH}>数量</th>
             <th className={RTH}>金额(元)</th>
-            <th className={RTH}>数量</th>
+            <th className={RTH}>{showApproved ? '上报计量量' : '数量'}</th>
             <th className={RTH}>金额(元)</th>
+            {showApproved && (<>
+              <th className={RTH}>批复计量量</th>
+              <th className={RTH}>批复金额(元)</th>
+            </>)}
           </tr>
         </thead>
         <tbody>
           {lines.map(l => {
             const dv = lineDerived(l);
+            const aq = approvedQtyOf(l);
+            const over = !!approve && aq > l.qty;
             return (
-              <tr key={l.id} className={`hover:bg-violet-50/40 ${l.manual ? 'bg-amber-50/40' : ''}`}>
+              <tr key={l.id} className={`hover:bg-violet-50/40 ${l.manual ? 'bg-amber-50/40' : ''} ${over ? 'bg-rose-50' : ''}`}>
                 <td className={`${RTD_C} font-mono text-violet-700`}>
                   {l.code}
                   {l.manual && <div className="text-[10px] text-amber-600">手动新增</div>}
@@ -345,6 +412,19 @@ export function ChapterDetailTable({ chapter, chapterLabel, lines, st }: {
                 <td className={RTD_R}>{fmtMoney(l.prevCumAmount)}</td>
                 <td className={`${RTD_R} font-bold text-violet-700`}>{fmtNum(l.qty)}</td>
                 <td className={`${RTD_R} font-medium text-violet-700`}>{fmtMoney(l.amount)}</td>
+                {showApproved && (
+                  <>
+                    <td className={RTD_R}>
+                      {approve
+                        ? <input type="number" step="any" min={0} value={aq}
+                            onChange={e => approve.onLineQtyChange(l.id, Number(e.target.value) || 0)}
+                            className="w-24 px-2 py-1 border rounded-md text-right text-sm tabular-nums outline-none focus:ring-1 focus:ring-emerald-500 border-slate-300" />
+                        : <span className="font-medium text-emerald-700">{fmtNum(aq)}</span>}
+                      {over && <div className="text-[10px] text-rose-600 leading-tight mt-0.5 whitespace-nowrap">超计量数量</div>}
+                    </td>
+                    <td className={`${RTD_R} text-emerald-700 font-medium`}>{fmtMoney(r2(aq * l.price))}</td>
+                  </>
+                )}
               </tr>
             );
           })}
@@ -361,6 +441,10 @@ export function ChapterDetailTable({ chapter, chapterLabel, lines, st }: {
             <td className={RTD_R}>{fmtMoney(sum(l => l.prevCumAmount))}</td>
             <td className={RTD_R}>{fmtNum(sum(l => l.qty))}</td>
             <td className={`${RTD_R} text-violet-700`}>{fmtMoney(sum(l => l.amount))}</td>
+            {showApproved && (<>
+              <td className={`${RTD_R} text-emerald-700`}>{fmtNum(sum(approvedQtyOf))}</td>
+              <td className={`${RTD_R} text-emerald-700`}>{fmtMoney(sum(l => approvedQtyOf(l) * l.price))}</td>
+            </>)}
           </tr>
         </tbody>
       </table>
@@ -369,7 +453,7 @@ export function ChapterDetailTable({ chapter, chapterLabel, lines, st }: {
 }
 
 /** 图二：按章节分组渲染全部明细 */
-export function ChapterDetailTables({ st }: { st: MeasureStatement }) {
+export function ChapterDetailTables({ st, approve }: { st: MeasureStatement; approve?: ApproveControl }) {
   const groups = new Map<string, MeasureStatementLine[]>();
   for (const l of st.lines) {
     const ch = l.chapter;
@@ -380,6 +464,7 @@ export function ChapterDetailTables({ st }: { st: MeasureStatement }) {
   if (chapters.length === 0) {
     return <div className="text-center text-slate-400 py-6 text-sm border border-dashed border-slate-300 rounded-lg">暂无子目明细</div>;
   }
+  const showApproved = !!approve || st.status === 'approved';
   return (
     <div>
       <div className={`${M.sectionTitle} !mb-2`}>
@@ -388,7 +473,7 @@ export function ChapterDetailTables({ st }: { st: MeasureStatement }) {
       </div>
       {chapters.map(ch => (
         <ChapterDetailTable key={ch} chapter={ch} chapterLabel={chapterName(ch)}
-          lines={groups.get(ch)!} st={st} />
+          lines={groups.get(ch)!} st={st} approve={approve} showApproved={showApproved} />
       ))}
     </div>
   );
@@ -396,14 +481,10 @@ export function ChapterDetailTables({ st }: { st: MeasureStatement }) {
 
 /* ==================== 计量单完整预览 ==================== */
 
-export default function StatementPreview({ st, editable = false, onDeductionsChange, onAssessLinesChange }: {
-  st: MeasureStatement;
-  editable?: boolean;
-  onDeductionsChange?: (d: StatementDeductions) => void;
-  onAssessLinesChange?: (ls: StatementAssessLine[]) => void;
-}) {
+/** 报表头 + 合同基本信息（完整预览 / 批复弹窗分步预览共用） */
+export function StatementHeader({ st }: { st: MeasureStatement }) {
   return (
-    <div className="bg-white">
+    <>
       {/* 报表头 */}
       <div className="text-center border-b-2 border-slate-800 pb-3 mb-4">
         <h2 className="text-lg font-bold text-slate-900">工程价款计量支付报表</h2>
@@ -419,13 +500,27 @@ export default function StatementPreview({ st, editable = false, onDeductionsCha
         <div>批复方式：系统内维护批复</div>
         <div>经办技术员：{st.handler}</div>
       </div>
+    </>
+  );
+}
+
+export default function StatementPreview({ st, editable = false, onDeductionsChange, onAssessLinesChange, approve }: {
+  st: MeasureStatement;
+  editable?: boolean;
+  onDeductionsChange?: (d: StatementDeductions) => void;
+  onAssessLinesChange?: (ls: StatementAssessLine[]) => void;
+  approve?: ApproveControl;
+}) {
+  return (
+    <div className="bg-white">
+      <StatementHeader st={st} />
 
       {/* 图一：章节汇总 */}
-      <ChapterSummaryTable st={st} editable={editable} onDeductionsChange={onDeductionsChange} onAssessLinesChange={onAssessLinesChange} />
+      <ChapterSummaryTable st={st} editable={editable} onDeductionsChange={onDeductionsChange} onAssessLinesChange={onAssessLinesChange} approve={approve} />
 
       {/* 图二：章节明细 */}
       <div className="mt-5">
-        <ChapterDetailTables st={st} />
+        <ChapterDetailTables st={st} approve={approve} />
       </div>
 
       {/* 批复信息 */}

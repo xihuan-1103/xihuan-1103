@@ -173,20 +173,25 @@ export function aggregateByChapter(lines: MeasureStatementLine[]): ChapterAgg[] 
   return list;
 }
 
-/** 扣款净额（负数为扣减，正数为增加）；altLines：向导第三步选择的考核/扣款行（有值时优先按行计算） */
-export function deductionsNet(d?: StatementDeductions, altLines?: StatementAssessLine[]): number {
+/** 扣款净额（负数为扣减，正数为增加）；altLines：向导第三步选择的考核/扣款行（有值时优先按行计算）；
+ *  approved：考核项批复金额（itemId → 批复计量金额，有值时按批复值计算，缺省按本期完成金额）；
+ *  dedApproved：老单固定扣款字段批复金额（字段 key → 批复计量金额，有值时按批复值计算，缺省按申报字段值） */
+export function deductionsNet(d?: StatementDeductions, altLines?: StatementAssessLine[], approved?: Record<string, number>, dedApproved?: Partial<Record<keyof StatementDeductions, number>>): number {
   const r2 = (n: number | undefined) => Math.round((n || 0) * 100) / 100;
   if (altLines?.length) {
     return r2((d?.priceAdjustment || 0)
-      + altLines.reduce((s, l) => s + (l.kind === 'reward' ? l.cur : -l.cur), 0));
+      + altLines.reduce((s, l) => s + (l.kind === 'reward' ? 1 : -1)
+        * (approved && approved[l.itemId] !== undefined ? approved[l.itemId] : l.cur), 0));
   }
   if (!d) return 0;
+  const val = (k: keyof StatementDeductions) =>
+    dedApproved && dedApproved[k] !== undefined ? dedApproved[k] : (d[k] || 0);
   return r2(
-    (d.priceAdjustment || 0) + (d.assessmentReward || 0)
-    + (d.mobilizationAdvance || 0) + (d.materialAdvance || 0)
-    - (d.claim || 0) - (d.penalty || 0) - (d.assessmentDeduction || 0)
-    - (d.lateInterest || 0) - (d.mobilizationAdvanceBack || 0) - (d.materialAdvanceBack || 0)
-    - (d.retention || 0)
+    (d.priceAdjustment || 0) + val('assessmentReward')
+    + val('mobilizationAdvance') + val('materialAdvance')
+    - val('claim') - val('penalty') - val('assessmentDeduction')
+    - val('lateInterest') - val('mobilizationAdvanceBack') - val('materialAdvanceBack')
+    - val('retention')
   );
 }
 
@@ -1099,11 +1104,14 @@ function releaseReported(st: MeasureStatement) {
 // ==================== 批复操作（系统内自行维护计量批复） ====================
 
 /** 维护计量批复（submitted/approving → approved / rejected，全部业主统一自维护，不再推送交投）
- *  行级批复数量默认 = 计量数量，可逐行调整；维护最终批复金额，可上传批复附件 */
+ *  直接在原计量单上操作：行级批复计量量默认 = 上报计量量、考核/扣款项批复计量金额默认 = 本期完成金额，均可逐项调整；
+ *  维护最终批复金额，可上传批复附件 */
 export function maintainApprove(id: string, result: {
   approved: boolean;
-  lineQtys?: Record<string, number>;    // 行 id → 批复数量（缺省 = 该行计量数量）
-  approvedAmount?: number;              // 最终批复金额（缺省 = 行批复合计 + 扣款净额）
+  lineQtys?: Record<string, number>;    // 行 id → 批复计量量（缺省 = 该行上报计量量）
+  assessApproved?: Record<string, number>;   // 考核项 itemId → 批复计量金额（缺省 = 本期完成金额）
+  dedApproved?: Record<string, number>;     // 老单固定扣款字段 key → 批复计量金额（缺省 = 申报字段值）
+  approvedAmount?: number;              // 最终批复金额（缺省 = 行批复合计 + 批复考核净额）
   opinion?: string; rejectReason?: string;
   attachments?: string[];
 }): string | null {
@@ -1124,31 +1132,56 @@ export function maintainApprove(id: string, result: {
     return null;
   }
 
-  // 行级批复数量（默认 = 计量数量）
+  // 行级批复计量量（默认 = 上报计量量）
   const newLines: MeasureStatementLine[] = st.lines.map(l => ({
     ...l,
     approvedQty: result.lineQtys && result.lineQtys[l.id] !== undefined
       ? Math.max(0, Math.round(result.lineQtys[l.id] * 100) / 100)
       : l.qty,
   }));
+  // 考核/扣款项批复计量金额（默认 = 本期完成金额）
+  const newAssess: StatementAssessLine[] = (st.assessLines || []).map(l => ({
+    ...l,
+    approvedCur: result.assessApproved && result.assessApproved[l.itemId] !== undefined
+      ? Math.max(0, Math.round(result.assessApproved[l.itemId] * 100) / 100)
+      : (l.approvedCur ?? l.cur),
+  }));
+  // 老单固定扣款字段批复计量金额（默认 = 申报字段值）
+  const dedApproved: Partial<Record<keyof StatementDeductions, number>> = {};
+  if (result.dedApproved) {
+    for (const [k, v] of Object.entries(result.dedApproved)) {
+      dedApproved[k as keyof StatementDeductions] = Math.max(0, Math.round(v * 100) / 100);
+    }
+  }
   const lineTotal = newLines.reduce((s, l) => s + (l.approvedQty || 0) * l.price, 0);   // 行批复合计
-  const defaultAmount = Math.round((lineTotal + deductionsNet(st.deductions, st.assessLines)) * 100) / 100;
+  const defaultAmount = Math.round((lineTotal + deductionsNet(st.deductions, newAssess.length ? newAssess : undefined, result.assessApproved, dedApproved)) * 100) / 100;
   return applyApproval(st, {
     lines: newLines,
+    assessLines: newAssess.length ? newAssess : undefined,
+    deductionsApproved: Object.keys(dedApproved).length ? dedApproved : undefined,
     approvedAmount: result.approvedAmount ?? defaultAmount,
     opinion: result.opinion,
     attachments: result.attachments,
   });
 }
 
-/** 通用批复落地：更新计量单（行批复数量/附件/最终批复金额）+ 数据池批复量 + 生成计量凭证 */
+/** 通用批复落地：更新计量单（行批复数量/考核批复金额/固定字段批复金额/附件/最终批复金额）+ 数据池批复量 + 生成计量凭证 */
 function applyApproval(st: MeasureStatement, input: {
-  lines: MeasureStatementLine[]; approvedAmount: number; opinion?: string; attachments?: string[];
+  lines: MeasureStatementLine[]; assessLines?: StatementAssessLine[];
+  deductionsApproved?: Partial<Record<keyof StatementDeductions, number>>;
+  approvedAmount: number; opinion?: string; attachments?: string[];
 }): string | null {
   const { approvedAmount } = input;
   if (approvedAmount < 0) return '批复金额不能为负数';
-  const net = netPayableOf(st);
-  if (approvedAmount > net) return `批复金额超出实际支付金额（${net.toLocaleString()}元）`;
+  // 批复后口径应付 = 行批复合计 + 价格调整 + 批复考核净额（无考核选择行时按固定扣款字段批复值）
+  const assessLinesApproved = input.assessLines || st.assessLines;
+  const lineTotalApproved = input.lines.reduce((s, l) => s + (l.approvedQty || 0) * l.price, 0);
+  const assessNetApproved = assessLinesApproved?.length
+    ? Math.round(((st.deductions?.priceAdjustment || 0)
+      + assessLinesApproved.reduce((s, l) => s + (l.kind === 'reward' ? 1 : -1) * (l.approvedCur ?? l.cur), 0)) * 100) / 100
+    : deductionsNet(st.deductions, undefined, undefined, input.deductionsApproved);
+  const approvedNet = Math.round((lineTotalApproved + assessNetApproved) * 100) / 100;
+  if (approvedAmount > approvedNet) return `批复金额超出批复后实际支付金额（${approvedNet.toLocaleString()}元）`;
   for (const l of input.lines) {
     if ((l.approvedQty || 0) > l.qty) {
       return `子目 ${l.code} 批复数量（${l.approvedQty}）不能超过计量数量（${l.qty}）`;
@@ -1159,7 +1192,8 @@ function applyApproval(st: MeasureStatement, input: {
   const idx = list.findIndex(s => s.id === st.id);   // 按 id 定位（getStatements 每次 parse 为新对象，不能 indexOf 引用比较）
   if (idx < 0) return '未找到计量单';
   const now = nowStr();
-  const deduction = Math.round((net - approvedAmount) * 100) / 100;
+  const netDeclared = netPayableOf(st);   // 申报口径实际支付金额
+  const deduction = Math.round((netDeclared - approvedAmount) * 100) / 100;
 
   // 数据池：已批复计量量按行级批复数量累计
   const pool = getPool();
@@ -1175,7 +1209,9 @@ function applyApproval(st: MeasureStatement, input: {
   savePool(pool);
 
   list[idx] = {
-    ...st, lines: input.lines, status: 'approved', approvedAmount, deduction,
+    ...st, lines: input.lines, assessLines: input.assessLines || st.assessLines,
+    deductionsApproved: input.deductionsApproved,
+    status: 'approved', approvedAmount, deduction,
     approveOpinion: input.opinion, attachments: input.attachments || st.attachments,
     approvedAt: now, updatedAt: now,
   };
