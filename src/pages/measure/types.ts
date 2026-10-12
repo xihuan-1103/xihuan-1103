@@ -118,6 +118,27 @@ export interface CoopPushLog {
   createdAt: string;
 }
 
+// ==================== 考核奖励/扣款项配置（基础信息配置） ====================
+
+/** 考核奖励/扣款项配置（基础信息配置 > 考核奖励/扣款项维护） */
+export interface AssessItem {
+  id: string;
+  name: string;
+  kind: 'deduction' | 'reward';   // 扣款（扣）/ 奖励（加）
+  remark?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 计量单考核/扣款选择行（向导第三步选择配置项后的快照行） */
+export interface StatementAssessLine {
+  itemId: string;                  // 关联考核项配置 id
+  name: string;                     // 项目名称快照
+  kind: 'deduction' | 'reward';    // 扣 / 奖
+  prevCum: number;                  // 到上期末完成金额（历史累计，自动）
+  cur: number;                      // 本期完成金额（可调整）
+}
+
 // ==================== 计量单（原计量台账） ====================
 
 /** 计量单状态流转：
@@ -190,6 +211,7 @@ export interface MeasureStatement {
   rejectReason?: string;
   approveOpinion?: string;
   attachments?: string[];        // 批复附件（批复维护时上传的文件名列表）
+  assessLines?: StatementAssessLine[];  // 考核/扣款选择行（第三步从配置项选择；有值时净额按此计算）
   // 提交/推送/批复时间
   submittedAt?: string;
   pushedAt?: string;             // 推送交投时间

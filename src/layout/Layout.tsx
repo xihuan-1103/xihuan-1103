@@ -266,6 +266,13 @@ const MENU_DATA: MenuItem[] = [
           { title: '回款跟踪', path: '/measure/payment' },
         ]
       },
+      {
+        title: '基础信息配置',
+        path: '/measure/assess-items',
+        children: [
+          { title: '考核奖励/扣款项维护', path: '/measure/assess-items' },
+        ]
+      },
     ]
   },
   {

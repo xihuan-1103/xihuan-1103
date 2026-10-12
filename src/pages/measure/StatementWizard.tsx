@@ -12,7 +12,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { M, Modal, Input, TypePill, useToast, fmtNum, fmtMoney } from './_shared';
-import type { MeasureStatement, MeasureStatementLine, StatementDeductions, MeasurePoolItem } from './types';
+import type { MeasureStatement, MeasureStatementLine, StatementDeductions, StatementAssessLine, MeasurePoolItem } from './types';
 import {
   getPool, getMeasureContracts, upsertStatement, nextPeriodNo, nextStatementCode,
   canMeasure, unreportedQty, periodBuiltQty, prevCumulative,
@@ -77,6 +77,8 @@ export default function StatementWizard({ onClose, onDone, initial, defaultContr
     });
   });
   const [deductions, setDeductions] = useState<StatementDeductions>(initial?.deductions || {});
+  // 第三步考核/扣款选择行（来源：基础信息配置 > 考核奖励/扣款项维护）
+  const [assessLines, setAssessLines] = useState<StatementAssessLine[]>(initial?.assessLines || []);
   const [handler, setHandler] = useState(initial?.handler || '陈技术');
   const [remark, setRemark] = useState(initial?.remark || '');
 
@@ -180,7 +182,7 @@ export default function StatementWizard({ onClose, onDone, initial, defaultContr
       periodStart, periodEnd,
       contractId, contractCode: c.code, contractName: c.name,
       projectName: c.projectName, ownerType: c.ownerType, ownerName: c.ownerName,
-      lines, totalAmount, safeFeeAmount, deductions,
+      lines, totalAmount, safeFeeAmount, deductions, assessLines,
       status: 'draft', handler, remark,
       createdAt: initial?.createdAt || nowStr(), updatedAt: nowStr(),
     };
@@ -529,7 +531,7 @@ export default function StatementWizard({ onClose, onDone, initial, defaultContr
                   </div>
                 </div>
               </div>
-              <StatementPreview st={buildSt()} editable onDeductionsChange={setDeductions} />
+              <StatementPreview st={buildSt()} editable onDeductionsChange={setDeductions} onAssessLinesChange={setAssessLines} />
             </div>
           )}
         </div>

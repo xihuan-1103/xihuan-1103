@@ -66,8 +66,12 @@ export default function ReceivableManager({ onRefresh }: Props) {
 
   const [kw, setKw] = useState('');
   const [status, setStatus] = useState('');
-  const [view, setView] = useState<ReceivableOrder | null>(null);
-  const [remark, setRemark] = useState('');
+  // 调试/直达：?detail=<应收单id或单号> 自动打开详情弹窗
+  const [view, setView] = useState<ReceivableOrder | null>(() => {
+    const d = new URLSearchParams(window.location.search).get('detail');
+    return d ? (getReceivables().find(r => r.id === d || r.code === d) || null) : null;
+  });
+  const [remark, setRemark] = useState(() => (view ? view.remark || '' : ''));
 
   // ===== 创建应收单向导（支持 ?wiz=1 直达打开，便于预览/分享） =====
   const [wizOpen, setWizOpen] = useState(() => new URLSearchParams(window.location.search).get('wiz') === '1');

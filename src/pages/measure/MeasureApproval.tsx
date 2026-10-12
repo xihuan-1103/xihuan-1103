@@ -53,7 +53,7 @@ export default function MeasureApproval({ onRefresh }: Props) {
     setLineQtys(qtys);
     setForm({
       approvedAmount: s.approvedAmount
-        ?? r2(s.lines.reduce((sum, l) => sum + (l.approvedQty ?? l.qty) * l.price, 0) + deductionsNet(s.deductions)),
+        ?? r2(s.lines.reduce((sum, l) => sum + (l.approvedQty ?? l.qty) * l.price, 0) + deductionsNet(s.deductions, s.assessLines)),
       opinion: s.approveOpinion || '',
     });
     setAttachments(s.attachments || []);
@@ -228,7 +228,7 @@ export default function MeasureApproval({ onRefresh }: Props) {
                                   setLineQtys(q => ({ ...q, [l.id]: v }));
                                   // 同步行批复合计 → 最终批复金额默认值（行批复合计 + 扣款净额）
                                   const lt = r2(approving.lines.reduce((s, x) => s + (x.id === l.id ? v : (lineQtys[x.id] ?? x.qty)) * x.price, 0));
-                                  setForm(f => ({ ...f, approvedAmount: r2(lt + deductionsNet(approving.deductions)) }));
+                                  setForm(f => ({ ...f, approvedAmount: r2(lt + deductionsNet(approving.deductions, approving.assessLines)) }));
                                 }}
                                 className={`w-24 px-2 py-1 border rounded-md text-right text-sm tabular-nums outline-none focus:ring-1
                                   ${over ? 'border-rose-400 focus:ring-rose-400' : 'border-slate-300 focus:ring-violet-500'}`} />

@@ -55,6 +55,7 @@ import MeasureApproval from './pages/measure/MeasureApproval';
 import MeasureOrderManager from './pages/measure/MeasureOrderManager';
 import ReceivableManager from './pages/measure/ReceivableManager';
 import PaymentTracking from './pages/measure/PaymentTracking';
+import AssessItemManager from './pages/measure/AssessItemManager';
 import CampaignConfig from './pages/campaign/CampaignConfig';
 import CampaignPlan from './pages/campaign/CampaignPlan';
 import CampaignDaily from './pages/campaign/CampaignDaily';
@@ -169,6 +170,7 @@ export default function App() {
           {/* 计量应收 - 应收管理 */}
           <Route path="/measure/receivable" element={<ReceivableManager />} />
           <Route path="/measure/payment" element={<PaymentTracking />} />
+          <Route path="/measure/assess-items" element={<AssessItemManager />} />
           {/* 百日攻坚 */}
           <Route path="/campaign/config" element={<CampaignConfig />} />
           <Route path="/campaign/plan" element={<CampaignPlan />} />

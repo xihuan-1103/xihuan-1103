@@ -1,15 +1,15 @@
 /**
  * 计量单预览组件（计量支付报表样式）
  *  - 图一：章节汇总表（合同价及变更金额 / 到本期末完成 / 到上期末完成 / 本期完成）
- *          + 底部扣款/调整手填项（索赔/违约/考核/迟付款利息/动员预付款/材料垫付款/保留金…）+ 实际支付金额
+ *          + 底部考核/扣款选择项（项目来源：基础信息配置 > 考核奖励/扣款项维护）+ 实际支付金额
  *  - 图二：章节子目明细表（按章节分组：项目编号/名称/单位/合同数量/累计完成占合同%/期末/上期末/本期）
- *  - editable=true 时扣款项可手填（向导第4步），否则只读预览
+ *  - editable=true 时考核/扣款项目可从配置项选择并调整本期完成金额（向导第三步），否则只读预览
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { M, Input, fmtNum, fmtMoney } from './_shared';
-import type { MeasureStatement, MeasureStatementLine, StatementDeductions } from './types';
-import { aggregateByChapter, netPayableOf, chapterName } from './measureStore';
+import type { MeasureStatement, MeasureStatementLine, StatementDeductions, StatementAssessLine } from './types';
+import { aggregateByChapter, netPayableOf, chapterName, getAssessItems, assessPrevCum } from './measureStore';
 
 /** 报表表格边框样式（打印风格，实线边框） */
 const BC = 'border border-slate-400';
@@ -18,7 +18,7 @@ const RTD = `${M.td} ${BC}`;
 const RTD_R = `${M.td} ${BC} text-right tabular-nums`;
 const RTD_C = `${M.td} ${BC} text-center`;
 
-/** 扣款/调整手填字段（图一底部，sign: 1=增加 / -1=扣减） */
+/** 固定扣款/调整字段（仅作老计量单只读回退显示，sign: 1=增加 / -1=扣减；新计量单改用 assessLines 选择项） */
 export const DEDUCTION_FIELDS: { key: keyof StatementDeductions; label: string; sign: 1 | -1 }[] = [
   { key: 'claim', label: '索赔金额', sign: -1 },
   { key: 'penalty', label: '违约罚款', sign: -1 },
@@ -36,10 +36,11 @@ const r2 = (n: number) => Math.round(n * 100) / 100;
 
 /* ==================== 图一：章节汇总表 ==================== */
 
-export function ChapterSummaryTable({ st, editable = false, onDeductionsChange }: {
+export function ChapterSummaryTable({ st, editable = false, onDeductionsChange, onAssessLinesChange }: {
   st: MeasureStatement;
   editable?: boolean;
   onDeductionsChange?: (d: StatementDeductions) => void;
+  onAssessLinesChange?: (ls: StatementAssessLine[]) => void;
 }) {
   const aggs = aggregateByChapter(st.lines);
   const d = st.deductions || {};
@@ -57,6 +58,25 @@ export function ChapterSummaryTable({ st, editable = false, onDeductionsChange }
   const setDed = (key: keyof StatementDeductions, v: string) => {
     onDeductionsChange?.({ ...d, [key]: Number(v) || 0 } as StatementDeductions);
   };
+
+  /* ===== 考核/扣款选择项（项目来源：基础信息配置 > 考核奖励/扣款项维护）===== */
+  const assessLines = st.assessLines || [];
+  const [addItemSel, setAddItemSel] = useState('');   // 待添加项目选择
+  const candidateItems = editable ? getAssessItems().filter(x => !assessLines.some(l => l.itemId === x.id)) : [];
+  const setAssess = (ls: StatementAssessLine[]) => onAssessLinesChange?.(ls);
+  /** 添加项目：到上期末完成金额 = 该合同历史各期计量单中该项目的本期完成金额自动累计 */
+  const addAssessItem = () => {
+    const item = getAssessItems().find(x => x.id === addItemSel);
+    if (!item) return;
+    setAssess([...assessLines, {
+      itemId: item.id, name: item.name, kind: item.kind,
+      prevCum: assessPrevCum(st.contractId, item.id), cur: 0,
+    }]);
+    setAddItemSel('');
+  };
+  const updateAssessLine = (itemId: string, v: string) =>
+    setAssess(assessLines.map(l => l.itemId === itemId ? { ...l, cur: Number(v) || 0 } : l));
+  const removeAssessLine = (itemId: string) => setAssess(assessLines.filter(l => l.itemId !== itemId));
 
   return (
     <div>
@@ -129,48 +149,120 @@ export function ChapterSummaryTable({ st, editable = false, onDeductionsChange }
         </tbody>
       </table>
 
-      {/* 图一底部：扣款/调整项 + 实际支付金额 */}
+      {/* 图一底部：考核/扣款选择项（来源：基础信息配置）+ 实际支付金额 */}
       <div className="mt-3">
-        <table className={`${M.table} ${BC}`}>
-          <thead>
-            <tr>
-              <th className={`${RTH} w-56`}>项目</th>
-              <th className={RTH}>到本期末完成金额(元)</th>
-              <th className={RTH}>到上期末完成金额(元)</th>
-              <th className={RTH}>本期完成金额(元)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {DEDUCTION_FIELDS.map(f => (
-              <tr key={f.key} className="hover:bg-violet-50/40">
-                <td className={RTD}>
-                  {f.label}
-                  {f.sign < 0 && <span className="ml-1 text-[11px] text-rose-500">(扣)</span>}
-                  {f.sign > 0 && <span className="ml-1 text-[11px] text-emerald-600">(加)</span>}
-                </td>
-                <td className={RTD_R}>—</td>
-                <td className={RTD_R}>—</td>
-                <td className={RTD_R}>
-                  {editable
-                    ? <input type="number" step="0.01" value={(d as any)[f.key] ?? 0}
-                        onChange={e => setDed(f.key, e.target.value)}
+        {editable ? (
+          <>
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <select value={addItemSel} onChange={e => setAddItemSel(e.target.value)}
+                className="w-72 px-2 py-1.5 border border-slate-300 rounded-md text-sm bg-white focus:ring-1 focus:ring-violet-500 outline-none">
+                <option value="">{candidateItems.length ? '选择考核/扣款项目…' : '（全部配置项目均已选择）'}</option>
+                {candidateItems.map(x => (
+                  <option key={x.id} value={x.id}>{x.name}（{x.kind === 'reward' ? '奖励·加' : '扣款·扣'}）</option>
+                ))}
+              </select>
+              <button type="button" onClick={addAssessItem} disabled={!addItemSel}
+                className="px-3 py-1.5 text-sm rounded-md bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed">
+                + 添加项目
+              </button>
+              <div className="text-[11px] text-slate-400 flex-1 min-w-[16rem]">
+                项目来源于「基础信息配置 → 考核奖励/扣款项维护」；到上期末完成金额按该合同历史计量单自动累计，本期完成金额可调整。
+              </div>
+            </div>
+            <table className={`${M.table} ${BC}`}>
+              <thead>
+                <tr>
+                  <th className={`${RTH} w-56`}>项目</th>
+                  <th className={RTH}>到本期末完成金额(元)</th>
+                  <th className={RTH}>到上期末完成金额(元)</th>
+                  <th className={RTH}>本期完成金额(元)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {assessLines.map(l => (
+                  <tr key={l.itemId} className="hover:bg-violet-50/40">
+                    <td className={RTD}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span>
+                          {l.name}
+                          {l.kind === 'reward'
+                            ? <span className="ml-1 text-[11px] text-emerald-600">(加)</span>
+                            : <span className="ml-1 text-[11px] text-rose-500">(扣)</span>}
+                        </span>
+                        <button type="button" onClick={() => removeAssessLine(l.itemId)}
+                          className="shrink-0 text-[11px] text-rose-500 hover:text-rose-700 hover:underline">删除</button>
+                      </div>
+                    </td>
+                    <td className={RTD_R}>{fmtMoney(r2(l.prevCum + l.cur))}</td>
+                    <td className={RTD_R}>{fmtMoney(l.prevCum)}</td>
+                    <td className={RTD_R}>
+                      <input type="number" step="0.01" value={l.cur}
+                        onChange={e => updateAssessLine(l.itemId, e.target.value)}
                         className="w-36 px-2 py-1 border border-slate-300 rounded text-right text-sm tabular-nums focus:ring-1 focus:ring-violet-500 outline-none" />
-                    : fmtMoney((d as any)[f.key] || 0)}
-                </td>
+                    </td>
+                  </tr>
+                ))}
+                {assessLines.length === 0 && (
+                  <tr><td className={`${RTD_C} text-slate-400 py-5`} colSpan={4}>尚未选择考核/扣款项目，可从上方「选择考核/扣款项目」中添加</td></tr>
+                )}
+                <tr className="bg-violet-50 font-bold">
+                  <td className={RTD}>实际支付金额</td>
+                  <td className={RTD_R}>—</td>
+                  <td className={RTD_R}>—</td>
+                  <td className={`${RTD_R} text-violet-700 text-base`}>{fmtMoney(net)}</td>
+                </tr>
+              </tbody>
+            </table>
+            <div className="mt-1.5 text-[11px] text-slate-400">
+              实际支付金额 = 本期完成合计 + 价格调整 + Σ奖励（加）项 − Σ扣款项，当前为 <b className="text-violet-600">{fmtMoney(net)}</b>；考核/扣款项目在确认创建前可随时调整，创建后随计量单存档。
+            </div>
+          </>
+        ) : (
+          <table className={`${M.table} ${BC}`}>
+            <thead>
+              <tr>
+                <th className={`${RTH} w-56`}>项目</th>
+                <th className={RTH}>到本期末完成金额(元)</th>
+                <th className={RTH}>到上期末完成金额(元)</th>
+                <th className={RTH}>本期完成金额(元)</th>
               </tr>
-            ))}
-            <tr className="bg-violet-50 font-bold">
-              <td className={RTD}>实际支付金额</td>
-              <td className={RTD_R}>—</td>
-              <td className={RTD_R}>—</td>
-              <td className={`${RTD_R} text-violet-700 text-base`}>{fmtMoney(net)}</td>
-            </tr>
-          </tbody>
-        </table>
-        {editable && (
-          <div className="mt-1.5 text-[11px] text-slate-400">
-            实际支付金额 = 本期完成合计 + Σ增加项 − Σ扣减项，当前为 <b className="text-violet-600">{fmtMoney(net)}</b>；扣款项在确认创建前可随时修改，创建后随计量单存档。
-          </div>
+            </thead>
+            <tbody>
+              {/* 新计量单：显示第三步选择的考核/扣款项目快照行 */}
+              {(st.assessLines?.length ? st.assessLines : null)?.map(l => (
+                <tr key={l.itemId} className="hover:bg-violet-50/40">
+                  <td className={RTD}>
+                    {l.name}
+                    {l.kind === 'reward'
+                      ? <span className="ml-1 text-[11px] text-emerald-600">(加)</span>
+                      : <span className="ml-1 text-[11px] text-rose-500">(扣)</span>}
+                  </td>
+                  <td className={RTD_R}>{fmtMoney(r2(l.prevCum + l.cur))}</td>
+                  <td className={RTD_R}>{fmtMoney(l.prevCum)}</td>
+                  <td className={`${RTD_R} font-medium`}>{fmtMoney(l.cur)}</td>
+                </tr>
+              ))}
+              {/* 老计量单回退：固定扣款字段只读展示 */}
+              {st.assessLines?.length ? null : DEDUCTION_FIELDS.map(f => (
+                <tr key={f.key} className="hover:bg-violet-50/40">
+                  <td className={RTD}>
+                    {f.label}
+                    {f.sign < 0 && <span className="ml-1 text-[11px] text-rose-500">(扣)</span>}
+                    {f.sign > 0 && <span className="ml-1 text-[11px] text-emerald-600">(加)</span>}
+                  </td>
+                  <td className={RTD_R}>—</td>
+                  <td className={RTD_R}>—</td>
+                  <td className={RTD_R}>{fmtMoney((d as any)[f.key] || 0)}</td>
+                </tr>
+              ))}
+              <tr className="bg-violet-50 font-bold">
+                <td className={RTD}>实际支付金额</td>
+                <td className={RTD_R}>—</td>
+                <td className={RTD_R}>—</td>
+                <td className={`${RTD_R} text-violet-700 text-base`}>{fmtMoney(net)}</td>
+              </tr>
+            </tbody>
+          </table>
         )}
       </div>
     </div>
@@ -304,10 +396,11 @@ export function ChapterDetailTables({ st }: { st: MeasureStatement }) {
 
 /* ==================== 计量单完整预览 ==================== */
 
-export default function StatementPreview({ st, editable = false, onDeductionsChange }: {
+export default function StatementPreview({ st, editable = false, onDeductionsChange, onAssessLinesChange }: {
   st: MeasureStatement;
   editable?: boolean;
   onDeductionsChange?: (d: StatementDeductions) => void;
+  onAssessLinesChange?: (ls: StatementAssessLine[]) => void;
 }) {
   return (
     <div className="bg-white">
@@ -328,7 +421,7 @@ export default function StatementPreview({ st, editable = false, onDeductionsCha
       </div>
 
       {/* 图一：章节汇总 */}
-      <ChapterSummaryTable st={st} editable={editable} onDeductionsChange={onDeductionsChange} />
+      <ChapterSummaryTable st={st} editable={editable} onDeductionsChange={onDeductionsChange} onAssessLinesChange={onAssessLinesChange} />
 
       {/* 图二：章节明细 */}
       <div className="mt-5">

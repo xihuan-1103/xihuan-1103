@@ -16,6 +16,7 @@ import type {
   MeasureOrder, MeasureOrderLine, ReceivableOrder, PaymentRecord, StatementDeductions,
   ReceivableDepositLine, ReceivableInvoiceLine, ReceivableInvoiceInfo,
   ReceivablePlanLine, ReceivableAttachment,
+  AssessItem, StatementAssessLine,
 } from './types';
 import { fmtMoney } from './_shared';
 
@@ -28,6 +29,7 @@ const KEY_STATEMENTS = 'md_measure5_statements';
 const KEY_ORDERS = 'md_measure5_orders';
 const KEY_RECEIVABLES = 'md_measure5_receivables';
 const KEY_PAYMENTS = 'md_measure5_payments';
+const KEY_ASSESS_ITEMS = 'md_measure5_assess_items';
 
 export function genId(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
@@ -171,10 +173,14 @@ export function aggregateByChapter(lines: MeasureStatementLine[]): ChapterAgg[] 
   return list;
 }
 
-/** 扣款净额（负数为扣减，正数为增加） */
-export function deductionsNet(d?: StatementDeductions): number {
-  if (!d) return 0;
+/** 扣款净额（负数为扣减，正数为增加）；altLines：向导第三步选择的考核/扣款行（有值时优先按行计算） */
+export function deductionsNet(d?: StatementDeductions, altLines?: StatementAssessLine[]): number {
   const r2 = (n: number | undefined) => Math.round((n || 0) * 100) / 100;
+  if (altLines?.length) {
+    return r2((d?.priceAdjustment || 0)
+      + altLines.reduce((s, l) => s + (l.kind === 'reward' ? l.cur : -l.cur), 0));
+  }
+  if (!d) return 0;
   return r2(
     (d.priceAdjustment || 0) + (d.assessmentReward || 0)
     + (d.mobilizationAdvance || 0) + (d.materialAdvance || 0)
@@ -184,9 +190,71 @@ export function deductionsNet(d?: StatementDeductions): number {
   );
 }
 
-/** 实际支付金额 = 本期完成合计 + 扣款净额（图一最末行） */
-export function netPayableOf(st: Pick<MeasureStatement, 'totalAmount' | 'deductions'>): number {
-  return Math.round((st.totalAmount + deductionsNet(st.deductions)) * 100) / 100;
+/** 实际支付金额 = 本期完成合计 + 扣款净额（图一最末行；计量单含考核选择行时按行计算） */
+export function netPayableOf(st: Pick<MeasureStatement, 'totalAmount' | 'deductions' | 'assessLines'>): number {
+  return Math.round((st.totalAmount + deductionsNet(st.deductions, st.assessLines)) * 100) / 100;
+}
+
+// ==================== 考核奖励/扣款项配置（基础信息配置） ====================
+
+/** 考核项种子：预置常用扣款/奖励项（对应原固定扣款字段口径） */
+function seedAssessItems(): AssessItem[] {
+  const t = nowStr();
+  const mk = (id: string, name: string, kind: 'deduction' | 'reward', remark: string): AssessItem =>
+    ({ id, name, kind, remark, createdAt: t, updatedAt: t });
+  return [
+    mk('ai-claim', '索赔金额', 'deduction', '工程索赔扣减'),
+    mk('ai-penalty', '违约罚款', 'deduction', '合同违约罚款'),
+    mk('ai-assess-ded', '考核扣款', 'deduction', '月度/季度考核不合格扣款'),
+    mk('ai-assess-rew', '考核奖励', 'reward', '考核优良奖励（增加支付）'),
+    mk('ai-late-int', '迟付款利息', 'deduction', '业主迟付款利息'),
+    mk('ai-mob-adv', '动员预付款', 'reward', '动员预付款（增加支付）'),
+    mk('ai-mob-adv-back', '扣回动员预付款', 'deduction', '按计量比例扣回动员预付款'),
+    mk('ai-mat-adv', '材料设备垫付款', 'reward', '为工程垫付的材料设备款'),
+    mk('ai-mat-adv-back', '扣回材料设备垫付款', 'deduction', '按比例扣回材料设备垫付款'),
+    mk('ai-retention', '保留金', 'deduction', '质量保留金（质保期满返还）'),
+  ];
+}
+
+/** 全部考核/扣款配置项（按创建时间排序） */
+export function getAssessItems(): AssessItem[] {
+  return load(KEY_ASSESS_ITEMS, seedAssessItems).slice().sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+
+/** 新增 / 编辑考核项（名称唯一） */
+export function upsertAssessItem(input: { id?: string; name: string; kind: 'deduction' | 'reward'; remark?: string }): string | null {
+  const name = input.name.trim();
+  if (!name) return '请填写项目名称';
+  const list = load(KEY_ASSESS_ITEMS, seedAssessItems);
+  if (list.some(x => x.name === name && x.id !== input.id)) return '项目名称已存在';
+  const t = nowStr();
+  if (input.id) {
+    const idx = list.findIndex(x => x.id === input.id);
+    if (idx < 0) return '未找到该配置项';
+    list[idx] = { ...list[idx], name, kind: input.kind, remark: input.remark?.trim() || '', updatedAt: t };
+  } else {
+    list.push({ id: genId('ai'), name, kind: input.kind, remark: input.remark?.trim() || '', createdAt: t, updatedAt: t });
+  }
+  save(KEY_ASSESS_ITEMS, list);
+  return null;
+}
+
+/** 删除考核项配置 */
+export function deleteAssessItem(id: string): string | null {
+  const list = load(KEY_ASSESS_ITEMS, seedAssessItems);
+  const idx = list.findIndex(x => x.id === id);
+  if (idx < 0) return '未找到该配置项';
+  list.splice(idx, 1);
+  save(KEY_ASSESS_ITEMS, list);
+  return null;
+}
+
+/** 到上期末完成金额：该合同此前各期计量单中该考核项的本期完成金额累计（历史口径） */
+export function assessPrevCum(contractId: string, itemId: string): number {
+  return Math.round(getStatements().reduce((sum, s) => {
+    if (s.contractId !== contractId) return sum;
+    return sum + (s.assessLines || []).filter(l => l.itemId === itemId).reduce((a, l) => a + (l.cur || 0), 0);
+  }, 0) * 100) / 100;
 }
 
 // ==================== 种子数据 ====================
@@ -1064,7 +1132,7 @@ export function maintainApprove(id: string, result: {
       : l.qty,
   }));
   const lineTotal = newLines.reduce((s, l) => s + (l.approvedQty || 0) * l.price, 0);   // 行批复合计
-  const defaultAmount = Math.round((lineTotal + deductionsNet(st.deductions)) * 100) / 100;
+  const defaultAmount = Math.round((lineTotal + deductionsNet(st.deductions, st.assessLines)) * 100) / 100;
   return applyApproval(st, {
     lines: newLines,
     approvedAmount: result.approvedAmount ?? defaultAmount,

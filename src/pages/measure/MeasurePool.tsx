@@ -7,7 +7,7 @@
  *    子目区分「本组织完成 / 协同单位完成」两种来源，根据两个组织完成的量生成计量单
  *  - 协同合同：只可查看当前合同已完工未计量的量（只读确认）；
  *    选中子目后可推送到关联主合同（协同合同不直接生成计量单）；
- *    合同行提供「全部推送」：一键将该合同下全部有未推送量子目按同子目号推送到关联主合同
+ *    合同行提供「推送」：将该合同下有未推送量的子目按同子目号推送到关联主合同，本次推送量默认为未推送量、可逐行调整
  *  - 主列表仅展示「可计量」子目（正式·合同内）；合同外 / 临时子目不在主列表展示
  *  - 支持 URL 参数 ?tab=coop 直达协同合同页签
  */
@@ -61,9 +61,11 @@ export default function MeasurePool({ onRefresh }: Props) {
   const [pf, setPf] = useState({ toId: '', qty: 0, operator: '陈技术' });
 
   // 全部推送弹窗（协同合同行一键推送该合同下全部可推送子目到关联主合同）
+  // pushQtyMap：源子目 id → 本次推送量（默认 = 未推送量，推送弹窗内可逐行修改）
   const [pushAllOpen, setPushAllOpen] = useState(false);
   const [pushAllC, setPushAllC] = useState<string>('');          // 协同合同 id
   const [pushAllOperator, setPushAllOperator] = useState('陈技术');
+  const [pushQtyMap, setPushQtyMap] = useState<Record<string, number>>({});
 
   // 发起计量向导（仅主合同；contractId 为空表示关闭；支持 ?wizc=<合同id> 直达打开，便于预览/分享）
   const [wizardContract, setWizardContract] = useState<string | null>(
@@ -197,15 +199,30 @@ export default function MeasurePool({ onRefresh }: Props) {
     return { contract, mainC, rows };
   }, [pushAllC, contracts, pool]);
 
+  /** 确认推送：按弹窗内各行「本次推送量」逐子目推送到主合同同子目号目标 */
   const doPushAll = () => {
-    if (!pushAllC) return;
-    const r = pushAllCoopToMain(pushAllC, pushAllOperator);
-    if (!r) { toast('该合同下暂无有未推送量的可推送子目', 'error'); return; }
-    refresh();
-    setPushAllOpen(false);
-    let msg = `全部推送完成：${r.pushedCount} 个子目共 ${fmtNum(r.totalQty)}（约 ${fmtMoney(r.totalValue)}），已计入主合同「协同单位完成」`;
-    if (r.skipped.length > 0) msg += `；${r.skipped.length} 个子目已跳过`;
-    toast(msg, r.skipped.length > 0 ? 'info' : 'success');
+    if (!pushAllPlan) return;
+    let pushedCount = 0, totalQty = 0, totalValue = 0;
+    let skippedNoTarget = 0, failed = 0;
+    let lastErr = '';
+    for (const r of pushAllPlan.rows) {
+      const qty = Number(pushQtyMap[r.src.id]) || 0;
+      if (qty <= 0) continue;
+      if (!r.target) { skippedNoTarget += 1; continue; }
+      const err = pushCoopToMain(r.src.id, r.target.id, qty, pushAllOperator);
+      if (err) { failed += 1; lastErr = err; continue; }
+      pushedCount += 1; totalQty += qty; totalValue += qty * r.src.price;
+    }
+    if (pushedCount > 0) {
+      refresh();
+      setPushAllOpen(false);
+      let msg = `推送完成：${pushedCount} 个子目共 ${fmtNum(totalQty)}（约 ${fmtMoney(totalValue)}），已计入主合同「协同单位完成」`;
+      if (skippedNoTarget > 0) msg += `；${skippedNoTarget} 个子目无匹配目标已跳过`;
+      if (failed > 0) msg += `；${failed} 个子目推送失败（${lastErr}）`;
+      toast(msg, failed > 0 || skippedNoTarget > 0 ? 'info' : 'success');
+    } else {
+      toast(lastErr || '请先填写有效的本次推送量', 'error');
+    }
   };
 
   return (
@@ -345,7 +362,6 @@ export default function MeasurePool({ onRefresh }: Props) {
                       <th className={`${M.th} text-right`}>已批复</th>
                       <th className={`${M.th} text-right`}>未批复</th>
                       <th className={M.th}>完成批次（时间段）</th>
-                      <th className={`${M.th} text-center`}>操作</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -353,7 +369,7 @@ export default function MeasurePool({ onRefresh }: Props) {
                       <React.Fragment key={ch || 'other'}>
                         {/* 章节层级行 */}
                         <tr className="bg-slate-50/80">
-                          <td colSpan={11} className="px-3 py-1.5">
+                          <td colSpan={10} className="px-3 py-1.5">
                             <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
                               <span className="w-1 h-3 bg-violet-400 rounded-full inline-block" />
                               章节 {ch || '—'} · {chapterName(ch)}
@@ -397,13 +413,6 @@ export default function MeasurePool({ onRefresh }: Props) {
                                 {p.completionBatches?.length
                                   ? `${p.completionBatches.length} 批 · 最近 ${lastBatch?.date}（${fmtNum(lastBatch?.qty)}）`
                                   : '—'}
-                              </td>
-                              <td className={`${M.td} text-center`}>
-                                <div className="flex items-center justify-center gap-1">
-                                  <button className={M.button.tiny} onClick={() => openEdit(p)}>维护</button>
-                                  <button className="px-2 py-1 rounded text-[12px] border border-rose-300 text-rose-600 hover:bg-rose-50 transition"
-                                    onClick={() => doDelete(p)}>删</button>
-                                </div>
                               </td>
                             </tr>
                           );
@@ -456,8 +465,14 @@ export default function MeasurePool({ onRefresh }: Props) {
                 <button
                   className="px-2.5 py-1 rounded text-[12px] border border-sky-500 bg-sky-500 text-white hover:bg-sky-600 transition disabled:opacity-40 disabled:cursor-not-allowed"
                   disabled={cItems.filter(p => unpushedQty(p) > 0).length === 0}
-                  onClick={() => { setPushAllC(cid); setPushAllOpen(true); }}
-                >全部推送</button>
+                  onClick={() => {
+                    setPushAllC(cid);
+                    const m: Record<string, number> = {};
+                    cItems.filter(p => canMeasure(p) && unpushedQty(p) > 0).forEach(p => { m[p.id] = unpushedQty(p); });
+                    setPushQtyMap(m);
+                    setPushAllOpen(true);
+                  }}
+                >推送</button>
                 <button className={M.button.tiny} onClick={() => toggleExpand(cid)}>{isOpen ? '收起清单' : '展开清单'}</button>
               </div>
             </div>
@@ -474,14 +489,13 @@ export default function MeasurePool({ onRefresh }: Props) {
                     <th className={`${M.th} text-right`}>已推送主合同</th>
                     <th className={`${M.th} text-right`}>未推送量（可推送）</th>
                     <th className={M.th}>完成批次（时间段）</th>
-                    <th className={`${M.th} text-center`}>操作</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {chapters.map(([ch, chItems]) => (
                     <React.Fragment key={ch || 'other'}>
                       <tr className="bg-slate-50/80">
-                        <td colSpan={8} className="px-3 py-1.5">
+                        <td colSpan={7} className="px-3 py-1.5">
                           <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
                             <span className="w-1 h-3 bg-sky-400 rounded-full inline-block" />
                             章节 {ch || '—'} · {chapterName(ch)}
@@ -518,10 +532,6 @@ export default function MeasurePool({ onRefresh }: Props) {
                               {p.completionBatches?.length
                                 ? `${p.completionBatches.length} 批 · 最近 ${lastBatch?.date}（${fmtNum(lastBatch?.qty)}）`
                                 : '—'}
-                            </td>
-                            <td className={`${M.td} text-center`}>
-                              <button className="px-2.5 py-1 rounded text-[12px] border border-sky-300 text-sky-700 hover:bg-sky-50 transition disabled:opacity-40 disabled:cursor-not-allowed"
-                                disabled={unpushed <= 0} onClick={() => openPush(p)}>推送到主合同</button>
                             </td>
                           </tr>
                         );
@@ -717,50 +727,65 @@ export default function MeasurePool({ onRefresh }: Props) {
       </Modal>
 
       {/* 全部推送弹窗（协同合同行 → 关联主合同，一键推送全部可推送子目） */}
-      <Modal title={`全部推送 · ${pushAllPlan?.contract.code || ''}`} open={pushAllOpen}
+      <Modal title={`推送 · ${pushAllPlan?.contract.code || ''}`} open={pushAllOpen}
         onClose={() => setPushAllOpen(false)} width="max-w-2xl"
         footer={<>
           <button className={M.button.ghost} onClick={() => setPushAllOpen(false)}>取消</button>
           <button
             className="px-4 py-1.5 rounded-lg bg-sky-500 text-white text-sm font-medium hover:bg-sky-600 transition disabled:opacity-40 disabled:cursor-not-allowed"
-            disabled={!pushAllPlan || pushAllPlan.rows.length === 0 || pushAllPlan.rows.every(r => !r.target)}
+            disabled={!pushAllPlan || pushAllPlan.rows.length === 0
+              || !pushAllPlan.rows.some(r => r.target && (Number(pushQtyMap[r.src.id]) || 0) > 0)}
             onClick={doPushAll}
-          >确认全部推送</button>
+          >确认推送</button>
         </>}>
         {pushAllPlan && (
           <div className="space-y-4">
             <div className="bg-sky-50 border border-sky-200 rounded-lg p-3 text-xs text-sky-700 leading-relaxed">
-              将该协同合同下<b>所有有未推送量</b>的可计量子目，按<b>同子目号</b>推送到关联主合同 <b className="font-mono">{pushAllPlan.mainC.code}</b>，计入主合同子目的「协同单位完成」构成，由主合同统一发起计量；关联主合同下无同子目号目标的子目将<b>跳过</b>（可在子目行单独推送时手动选择目标）。
+              将该协同合同下有未推送量的可计量子目，按<b>同子目号</b>推送到关联主合同 <b className="font-mono">{pushAllPlan.mainC.code}</b>，计入主合同子目的「协同单位完成」构成，由主合同统一发起计量；<b>本次推送量</b>默认为未推送量，可逐行调整（0 ~ 未推送量）；关联主合同下无同子目号目标的子目将<b>跳过</b>。
             </div>
             <div className="text-xs text-slate-500 bg-slate-50 rounded-lg p-3 space-y-1">
               <div>协同合同：<b className="font-mono text-sky-700">{pushAllPlan.contract.code}</b> {pushAllPlan.contract.name}</div>
               <div>关联主合同：<b className="font-mono">{pushAllPlan.mainC.code}</b> {pushAllPlan.mainC.name}</div>
               <div>待推送子目：<b className="text-cyan-600">{pushAllPlan.rows.length} 项</b>
-                （可自动匹配 {pushAllPlan.rows.filter(r => r.target).length} 项 · 未推送量价值 {fmtMoney(pushAllPlan.rows.reduce((s, r) => s + r.qty * r.src.price, 0))}）</div>
+                （可自动匹配 {pushAllPlan.rows.filter(r => r.target).length} 项 · 本次推送量价值 {fmtMoney(pushAllPlan.rows.reduce((s, r) => s + (Number(pushQtyMap[r.src.id]) || 0) * r.src.price, 0))}）</div>
             </div>
             <div className="overflow-x-auto max-h-64 overflow-y-auto">
               <table className={M.table}>
                 <thead>
                   <tr>
                     <th className={M.th}>源子目（协同合同）</th>
-                    <th className={M.th}>未推送量</th>
+                    <th className={`${M.th} text-right`}>未推送量</th>
+                    <th className={`${M.th} text-right`}>本次推送量</th>
                     <th className={M.th}>主合同目标子目（同子目号）</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {pushAllPlan.rows.map(r => (
-                    <tr key={r.src.id}>
-                      <td className={M.td}><span className="font-mono text-sky-700">{r.src.code}</span> {r.src.name}</td>
-                      <td className={`${M.td} text-right tabular-nums font-medium text-cyan-600`}>{fmtNum(r.qty)} {r.src.unit}</td>
-                      <td className={M.td}>
-                        {r.target
-                          ? <span><span className="font-mono text-violet-700">{r.target.code}</span> {r.target.name}（已含协同完成 {fmtNum(coopBuiltQty(r.target))}）</span>
-                          : <span className="text-rose-500">跳过：主合同下无同子目号子目</span>}
-                      </td>
-                    </tr>
-                  ))}
+                  {pushAllPlan.rows.map(r => {
+                    const q = Number(pushQtyMap[r.src.id]) || 0;
+                    const over = q > r.qty + 0.000001;
+                    return (
+                      <tr key={r.src.id} className={r.target ? '' : 'opacity-60'}>
+                        <td className={M.td}><span className="font-mono text-sky-700">{r.src.code}</span> {r.src.name}</td>
+                        <td className={`${M.td} text-right tabular-nums font-medium text-cyan-600`}>{fmtNum(r.qty)} {r.src.unit}</td>
+                        <td className={M.td}>
+                          {r.target ? (
+                            <div className="w-28">
+                              <Input type="number" step="0.01" min={0} value={q}
+                                onChange={v => setPushQtyMap(m => ({ ...m, [r.src.id]: Number(v) || 0 }))} />
+                              {over && <div className="text-[11px] text-rose-600 mt-0.5">超出未推送量</div>}
+                            </div>
+                          ) : <span className="text-slate-400 text-xs">—（跳过）</span>}
+                        </td>
+                        <td className={M.td}>
+                          {r.target
+                            ? <span><span className="font-mono text-violet-700">{r.target.code}</span> {r.target.name}（已含协同完成 {fmtNum(coopBuiltQty(r.target))}）</span>
+                            : <span className="text-rose-500">跳过：主合同下无同子目号子目</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
                   {pushAllPlan.rows.length === 0 && (
-                    <tr><td className={`${M.td} text-center text-slate-400 py-4`} colSpan={3}>该合同下暂无有未推送量的可推送子目</td></tr>
+                    <tr><td className={`${M.td} text-center text-slate-400 py-4`} colSpan={4}>该合同下暂无有未推送量的可推送子目</td></tr>
                   )}
                 </tbody>
               </table>

@@ -1,7 +1,8 @@
 /**
  * 回款跟踪（计量—回款对比台账）
  *  - 按应收单跟踪回款进度：应收金额 / 已回款 / 未回款 / 回款率
- *  - 回款流水：登记回款（多笔部分回款），校验不超应收
+ *  - 台账按合同分组：合同下展示该合同全部应收单，应收单上可「+ 新增回款」维护回款信息
+ *  - 回款流水：一单多笔部分回款，校验不超应收
  *  - 项目部汇总视图：多合同的计量/回款汇总（1:N 结构在平台内完成，不依赖交工计量系统）
  */
 
@@ -51,6 +52,17 @@ export default function PaymentTracking({ onRefresh }: Props) {
     }
     return true;
   });
+
+  /** 台账按合同分组展示（合同 → 该合同全部应收单） */
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const byContract: [string, ReceivableOrder[]][] = (() => {
+    const map = new Map<string, ReceivableOrder[]>();
+    for (const r of filtered) {
+      if (!map.has(r.contractId)) map.set(r.contractId, []);
+      map.get(r.contractId)!.push(r);
+    }
+    return [...map.entries()];
+  })();
 
   const totalReceivable = filtered.reduce((s, r) => s + r.amount, 0);
   const totalPaid = filtered.reduce((s, r) => s + paidAmountOf(r.id), 0);
@@ -203,88 +215,123 @@ export default function PaymentTracking({ onRefresh }: Props) {
           options={[{ value: 'unpaid', label: '仅未结清' }]} />
       </SearchBar>
 
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div className="px-4 py-3 bg-violet-50/60 border-b border-violet-100 flex items-center gap-2">
-          <div className="w-1.5 h-4 bg-violet-500 rounded-full" />
-          <h3 className="font-bold text-sm text-slate-800">计量—回款对比台账</h3>
-          <span className="text-xs text-slate-500">{filtered.length} 张应收单</span>
-        </div>
-        <div className="overflow-x-auto">
-          <table className={M.table}>
-            <thead>
-              <tr>
-                <th className={`${M.th} w-12 text-center`}>序号</th>
-                <th className={M.th}>应收单号 / 计量单</th>
-                <th className={M.th}>合同</th>
-                <th className={M.th}>业主</th>
-                <th className={`${M.th} text-right`}>应收金额(元)</th>
-                <th className={`${M.th} text-right`}>已回款(元)</th>
-                <th className={`${M.th} text-right`}>未回款(元)</th>
-                <th className={`${M.th} text-center`}>回款率</th>
-                <th className={`${M.th} text-center`}>状态</th>
-                <th className={`${M.th} text-center`}>操作</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filtered.map((r, i) => {
-                const paid = paidAmountOf(r.id);
-                const unpaid = r.amount - paid;
-                const rate = r.amount > 0 ? Math.round(paid / r.amount * 100) : 0;
-                return (
-                  <tr key={r.id} className={`hover:bg-violet-50/40 transition-colors ${unpaid > 0.01 ? '' : 'bg-emerald-50/30'}`}>
-                    <td className={`${M.td} text-center text-slate-400 tabular-nums`}>{i + 1}</td>
-                    <td className={M.td}>
-                      <div className="font-mono font-medium text-violet-700">{r.code}</div>
-                      <div className="text-xs text-slate-500 font-mono">计量 {r.measureOrderCode} · {r.period}</div>
-                    </td>
-                    <td className={M.td}>
-                      <div className="font-medium text-slate-800">{r.contractName}</div>
-                      <div className="text-xs text-slate-500 font-mono">{r.contractCode} · {r.projectName}</div>
-                    </td>
-                    <td className={M.td}>{r.ownerName}</td>
-                    <td className={`${M.td} text-right tabular-nums font-medium`}>{fmtMoney(r.amount)}</td>
-                    <td className={`${M.td} text-right tabular-nums text-emerald-600 font-medium`}>{fmtMoney(paid)}</td>
-                    <td className={`${M.td} text-right tabular-nums ${unpaid > 0.01 ? 'text-rose-600 font-bold' : 'text-slate-400'}`}>
-                      {unpaid > 0.01 ? fmtMoney(unpaid) : '已结清'}
-                    </td>
-                    <td className={`${M.td} text-center`}>
-                      <div className="flex items-center gap-1.5 justify-center">
-                        <div className="w-14 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${rate}%` }} />
-                        </div>
-                        <span className="text-xs tabular-nums text-slate-500">{rate}%</span>
-                      </div>
-                    </td>
-                    <td className={`${M.td} text-center`}><ReceivableStatusPill status={r.status} /></td>
-                    <td className={`${M.td} text-center`}>
-                      <div className="flex items-center justify-center gap-1.5">
-                        {r.status === 'confirmed' && (
-                          <button className={M.button.tinyViolet} onClick={() => openPay(r)} disabled={unpaid <= 0.01}>
-                            {unpaid <= 0.01 ? '已结清' : '登记回款'}
-                          </button>
-                        )}
-                        <button className={M.button.tiny} onClick={() => { setFlowOf(r); setFlowAddOpen(false); setFlowOpen(true); }}>回款流水</button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-              {filtered.length === 0 && (
-                <tr><td colSpan={10} className={`${M.td} text-center text-slate-400 py-10`}>暂无应收单数据</td></tr>
+      <div className="flex items-center gap-2 mb-3">
+        <div className="w-1.5 h-4 bg-violet-500 rounded-full" />
+        <h3 className="font-bold text-sm text-slate-800">应收单台账（按合同分组）</h3>
+        <span className="text-xs text-slate-500">{filtered.length} 张应收单 · {byContract.length} 个合同</span>
+      </div>
+
+      <div className="space-y-3">
+        {byContract.map(([cid, rows]) => {
+          const first = rows[0];
+          const cReceivable = rows.reduce((s, r) => s + r.amount, 0);
+          const cPaid = rows.reduce((s, r) => s + paidAmountOf(r.id), 0);
+          const cRate = cReceivable > 0 ? Math.round(cPaid / cReceivable * 100) : 0;
+          const open = !collapsed[cid];
+          return (
+            <div key={cid} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              {/* 合同头（点击展开/收起该合同下的应收单） */}
+              <div className="px-4 py-3 bg-violet-50/60 border-b border-violet-100 cursor-pointer select-none flex items-center gap-4 hover:bg-violet-50"
+                onClick={() => setCollapsed(c => ({ ...c, [cid]: !c[cid] }))}>
+                <div className="w-1.5 h-4 bg-violet-500 rounded-full" />
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-sm text-slate-800">{first.contractName}</div>
+                  <div className="text-xs text-slate-500 mt-0.5">{first.contractCode} · {first.projectName} · 业主：{first.ownerName}</div>
+                </div>
+                <div className="text-xs text-slate-500 whitespace-nowrap">{rows.length} 张应收单</div>
+                <div className="w-28 text-right hidden lg:block">
+                  <div className="text-[11px] text-slate-400">累计应收</div>
+                  <div className="text-sm font-bold text-slate-700 tabular-nums">{fmtMoney(cReceivable)}</div>
+                </div>
+                <div className="w-28 text-right hidden lg:block">
+                  <div className="text-[11px] text-slate-400">累计回款</div>
+                  <div className="text-sm font-bold text-emerald-600 tabular-nums">{fmtMoney(cPaid)}</div>
+                </div>
+                <div className="w-28 text-right hidden lg:block">
+                  <div className="text-[11px] text-slate-400">未回款</div>
+                  <div className="text-sm font-bold text-rose-600 tabular-nums">{fmtMoney(cReceivable - cPaid)}</div>
+                </div>
+                <div className="hidden lg:flex items-center gap-1.5 w-24">
+                  <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${cRate}%` }} />
+                  </div>
+                  <span className="text-xs tabular-nums text-slate-500">{cRate}%</span>
+                </div>
+                <span className="text-xs text-slate-400">{open ? '收起 ▲' : '展开 ▼'}</span>
+              </div>
+              {/* 该合同下的应收单列表 */}
+              {open && (
+                <div className="overflow-x-auto">
+                  <table className={M.table}>
+                    <thead>
+                      <tr>
+                        <th className={`${M.th} w-12 text-center`}>序号</th>
+                        <th className={M.th}>应收单号 / 计量单</th>
+                        <th className={`${M.th} text-right`}>应收金额(元)</th>
+                        <th className={`${M.th} text-right`}>已回款(元)</th>
+                        <th className={`${M.th} text-right`}>未回款(元)</th>
+                        <th className={`${M.th} text-center`}>回款率</th>
+                        <th className={`${M.th} text-center`}>状态</th>
+                        <th className={`${M.th} text-center`}>操作</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {rows.map((r, i) => {
+                        const paid = paidAmountOf(r.id);
+                        const unpaid = r.amount - paid;
+                        const rate = r.amount > 0 ? Math.round(paid / r.amount * 100) : 0;
+                        return (
+                          <tr key={r.id} className={`hover:bg-violet-50/40 transition-colors ${unpaid > 0.01 ? '' : 'bg-emerald-50/30'}`}>
+                            <td className={`${M.td} text-center text-slate-400 tabular-nums`}>{i + 1}</td>
+                            <td className={M.td}>
+                              <div className="font-mono font-medium text-violet-700">{r.code}</div>
+                              <div className="text-xs text-slate-500 font-mono">计量 {r.measureOrderCode} · {r.period}</div>
+                            </td>
+                            <td className={`${M.td} text-right tabular-nums font-medium`}>{fmtMoney(r.amount)}</td>
+                            <td className={`${M.td} text-right tabular-nums text-emerald-600 font-medium`}>{fmtMoney(paid)}</td>
+                            <td className={`${M.td} text-right tabular-nums ${unpaid > 0.01 ? 'text-rose-600 font-bold' : 'text-slate-400'}`}>
+                              {unpaid > 0.01 ? fmtMoney(unpaid) : '已结清'}
+                            </td>
+                            <td className={`${M.td} text-center`}>
+                              <div className="flex items-center gap-1.5 justify-center">
+                                <div className="w-14 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${rate}%` }} />
+                                </div>
+                                <span className="text-xs tabular-nums text-slate-500">{rate}%</span>
+                              </div>
+                            </td>
+                            <td className={`${M.td} text-center`}><ReceivableStatusPill status={r.status} /></td>
+                            <td className={`${M.td} text-center`}>
+                              <div className="flex items-center justify-center gap-1.5">
+                                {r.status === 'confirmed' && unpaid > 0.01 && (
+                                  <button className={M.button.tinyViolet} onClick={() => openPay(r)}>+ 新增回款</button>
+                                )}
+                                <button className={M.button.tiny} onClick={() => { setFlowOf(r); setFlowAddOpen(false); setFlowOpen(true); }}>回款流水</button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               )}
-            </tbody>
-          </table>
-        </div>
-        <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 text-xs text-slate-500">
-          说明：仅「财务共享已确认」的应收单可登记回款；支持一单多笔部分回款，累计回款不可超出应收金额。回款确认后形成计量—回款对比台账。
+            </div>
+          );
+        })}
+        {byContract.length === 0 && (
+          <div className="bg-white rounded-xl border border-slate-200 p-10 text-center text-slate-400">暂无应收单数据</div>
+        )}
+        <div className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-500">
+          说明：台账按合同分组展示，点击合同头可展开/收起该合同下的应收单；在应收单上点击「+ 新增回款」维护回款信息（仅「财务共享已确认」且未结清的应收单可新增）；支持一单多笔部分回款，累计回款不可超出应收金额。
         </div>
       </div>
 
-      {/* 登记回款弹窗 */}
-      <Modal title={`登记回款 - ${paying?.code || ''}`} open={payOpen} onClose={() => setPayOpen(false)} width="max-w-lg"
+      {/* 新增回款弹窗（在应收单上直接维护回款信息） */}
+      <Modal title={`新增回款 - ${paying?.code || ''}`} open={payOpen} onClose={() => setPayOpen(false)} width="max-w-lg"
         footer={<>
           <button className={M.button.ghost} onClick={() => setPayOpen(false)}>取消</button>
-          <button className={M.button.primary} onClick={doPay}>确认登记</button>
+          <button className={M.button.primary} onClick={doPay}>确认新增</button>
         </>}>
         {paying && (
           <div className="space-y-4">
