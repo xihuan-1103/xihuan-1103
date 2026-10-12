@@ -139,15 +139,6 @@ export default function MeasureApproval({ onRefresh }: Props) {
     toast('批复完成：批复计量量与考核批复金额已写入计量单，计量凭证已自动生成', 'success');
   };
 
-  const doReject = () => {
-    if (!approving) return;
-    const err = maintainApprove(approving.id, { approved: false });
-    if (err) { toast(err, 'error'); return; }
-    refresh();
-    setApproveOpen(false);
-    toast('已驳回：台账回到已驳回状态，可重新编辑申报（上报量已释放）', 'success');
-  };
-
   const addAttachment = () => {
     const name = attInput.trim();
     if (!name) return;
@@ -273,7 +264,6 @@ export default function MeasureApproval({ onRefresh }: Props) {
           </>
         ) : (
           <>
-            <button className={M.button.danger} onClick={doReject}>驳回</button>
             <button className={M.button.ghost} onClick={() => setStep(1)}>← 上一步：调整明细</button>
             <button className={M.button.primary} onClick={doApprove}>确认批复</button>
           </>

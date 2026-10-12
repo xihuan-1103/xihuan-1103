@@ -104,6 +104,17 @@ export function ChapterSummaryTable({ st, editable = false, onDeductionsChange, 
   const effDedApproved = approve ? approve.dedApproved : st.deductionsApproved;
   const approvedNet = r2(lineTotalApproved + deductionsNet(d, effAssess.length ? effAssess : undefined, approve?.assessApproved, effDedApproved));
 
+  /* ===== 「本期完成」列在批复视图下改为「本期批复金额」（按维护的批复计量量 × 单价，按章节汇总）===== */
+  const isApprovedView = !!approve || st.status === 'approved';
+  const approvedQtyOf = (l: MeasureStatementLine) =>
+    approve ? (approve.lineQtys[l.id] ?? l.qty) : (l.approvedQty ?? l.qty);
+  const curApprovedByChapter = new Map<string, number>();
+  st.lines.forEach(l => {
+    const v = approvedQtyOf(l) * l.price;
+    curApprovedByChapter.set(l.chapter, (curApprovedByChapter.get(l.chapter) || 0) + v);
+  });
+  const subtotalCurApproved = r2([...curApprovedByChapter.values()].reduce((s, v) => s + v, 0));
+
   return (
     <div>
       <div className={`${M.sectionTitle} !mb-1`}>
@@ -118,7 +129,7 @@ export function ChapterSummaryTable({ st, editable = false, onDeductionsChange, 
             <th className={RTH} colSpan={3}>合同价及变更金额</th>
             <th className={RTH} colSpan={2}>到本期末完成</th>
             <th className={RTH} colSpan={2}>到上期末完成</th>
-            <th className={RTH} colSpan={2}>本期完成</th>
+            <th className={RTH} colSpan={2}>{isApprovedView ? '本期批复金额' : '本期完成'}</th>
           </tr>
           <tr>
             <th className={RTH}>合同价(元)</th>
@@ -144,7 +155,7 @@ export function ChapterSummaryTable({ st, editable = false, onDeductionsChange, 
               <td className={RTD_R}>{fmtMoney(g.curChange)}</td>
               <td className={RTD_R}>{fmtMoney(g.prevCumAmount)}</td>
               <td className={RTD_R}>{fmtMoney(g.curChange)}</td>
-              <td className={`${RTD_R} font-bold text-violet-700`}>{fmtMoney(g.curAmount)}</td>
+              <td className={`${RTD_R} font-bold text-violet-700`}>{fmtMoney(isApprovedView ? (curApprovedByChapter.get(g.chapter) || 0) : g.curAmount)}</td>
               <td className={RTD_R}>{fmtMoney(g.curChange)}</td>
             </tr>
           ))}
@@ -160,7 +171,7 @@ export function ChapterSummaryTable({ st, editable = false, onDeductionsChange, 
             <td className={RTD_R}>{fmtMoney(0)}</td>
             <td className={RTD_R}>{fmtMoney(subtotalPrev)}</td>
             <td className={RTD_R}>{fmtMoney(0)}</td>
-            <td className={RTD_R}>{fmtMoney(subtotalCur)}</td>
+            <td className={RTD_R}>{fmtMoney(isApprovedView ? subtotalCurApproved : subtotalCur)}</td>
             <td className={RTD_R}>{fmtMoney(0)}</td>
           </tr>
           <tr>
