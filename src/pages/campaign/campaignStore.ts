@@ -546,3 +546,137 @@ export function aggProjects(ids: Iterable<string>, uptoDate: string): RankAgg {
   }
   return acc;
 }
+
+/* ==================== 百日攻坚总表 ==================== */
+
+import type { CampaignSummaryRow } from './types';
+import { SEED_SUMMARY_ROWS } from './_seedSummary';
+
+const SUMMARY_KEY = 'md_campaign_summary_v1';
+
+export function getSummaryRows(): CampaignSummaryRow[] {
+  const raw = localStorage.getItem(SUMMARY_KEY);
+  if (raw) {
+    try { return JSON.parse(raw); } catch { /* fallthrough */ }
+  }
+  // 种子数据：按区域内序号升序 + 末尾合计行
+  const rows = SEED_SUMMARY_ROWS.map(r => ({ ...r }));
+  rows.sort((a, b) => {
+    if (a._isSummary && !b._isSummary) return 1;
+    if (!a._isSummary && b._isSummary) return -1;
+    return Number(a.seq) - Number(b.seq);
+  });
+  localStorage.setItem(SUMMARY_KEY, JSON.stringify(rows));
+  return rows;
+}
+
+export function saveSummaryRows(rows: CampaignSummaryRow[]) {
+  localStorage.setItem(SUMMARY_KEY, JSON.stringify(rows));
+}
+
+/** 按区域分组：{ 区域名: CampaignSummaryRow[] } */
+export function groupSummaryByRegion(rows: CampaignSummaryRow[]): Map<string, CampaignSummaryRow[]> {
+  const m = new Map<string, CampaignSummaryRow[]>();
+  for (const r of rows) {
+    if (r._isSummary) continue;
+    if (!m.has(r.region)) m.set(r.region, []);
+    m.get(r.region)!.push(r);
+  }
+  return m;
+}
+
+/* ==================== 总表 · 进度类动态计算（按当前日期实时计算，不取种子快照） ==================== */
+
+const DAY_MS = 86400000;
+
+/** 理论完成率 = 当前施工工期（今天-开工）/ 计划工期（完工-开工）；≥1 封顶；无开工/完工时间或工期≤0 → null（显示 "/"） */
+export function theoryRateOf(r: CampaignSummaryRow): number | null {
+  if (!r.planStart || !r.planEnd) return null;
+  const start = new Date(r.planStart).getTime();
+  const end = new Date(r.planEnd).getTime();
+  const totalDays = (end - start) / DAY_MS;
+  if (totalDays <= 0) return null;
+  const elapsedDays = (Date.now() - start) / DAY_MS;
+  return Math.min(elapsedDays / totalDays, 1);
+}
+
+/** 进度偏差 = 完成率 − 理论完成率；完成率≥1 → "已完工"；无法计算 → null */
+export function schedDevOf(r: CampaignSummaryRow): number | string | null {
+  if (r.doneRate >= 1) return '已完工';
+  const t = theoryRateOf(r);
+  if (t === null) return null;
+  return r.doneRate - t;
+}
+
+/**
+ * 进度预警（新规则）：
+ *  完成率≥1 → 已完工；偏差≥0 → 正常施工；[-0.05,0) → 轻微滞后；[-0.1,-0.05) → 滞后；<-0.1 → 严重滞后
+ */
+export function schedWarnOf(r: CampaignSummaryRow): string {
+  if (r.doneRate >= 1) return '已完工';
+  const d = schedDevOf(r);
+  if (typeof d !== 'number') return '—';
+  if (d >= 0) return '正常施工';
+  if (d >= -0.05) return '轻微滞后';
+  if (d >= -0.1) return '滞后';
+  return '严重滞后';
+}
+
+/** 距完工天数 = 完工日期 − 今天（负数=已逾期）；已完工 → "已完成"；无完工日期 → null */
+export function daysLeftOf(r: CampaignSummaryRow): number | string | null {
+  if (r.doneRate >= 1) return '已完成';
+  if (!r.planEnd) return null;
+  return Math.ceil((new Date(r.planEnd).getTime() - Date.now()) / DAY_MS);
+}
+
+/** 按当前工效还需天数 = 剩余金额 ÷ 开工以来日均产值；未开工 → "待开工"；无产值 → "无施工" */
+export function needDaysOf(r: CampaignSummaryRow): number | string | null {
+  if (r.doneRate >= 1) return '已完成';
+  if (!r.planStart) return null;
+  const elapsed = (Date.now() - new Date(r.planStart).getTime()) / DAY_MS;
+  if (elapsed <= 0) return '待开工';
+  const avgDaily = r.cumDone / elapsed;
+  if (avgDaily <= 0) return '无施工';
+  return Math.ceil(r.remainAmt / avgDaily);
+}
+
+/** 能否按期：还需天数 ≤ 距完工天数 → 按期，否则 不能按期；已完工 → "已完工" */
+export function onTimeOf(r: CampaignSummaryRow): string {
+  if (r.doneRate >= 1) return '已完工';
+  const need = needDaysOf(r);
+  const left = daysLeftOf(r);
+  if (typeof need !== 'number' || typeof left !== 'number') return '—';
+  return need <= left ? '按期' : '不能按期';
+}
+
+/** 区域聚合统计（金额/工效/进度，进度计数按动态规则） */
+export function regionSummaryOf(rows: CampaignSummaryRow[]): {
+  region: string;
+  projectCount: number;
+  totalAmt: number;
+  cumDone: number;
+  doneRate: number | null;
+  weekValue: number;
+  weekDiseaseTon: number;
+  weekOverlayTon: number;
+  onTimeCount: number;
+  lagCount: number;
+  doneCount: number;
+} {
+  const totalAmt = rows.reduce((s, r) => s + (r.totalAmt || 0), 0);
+  const cumDone = rows.reduce((s, r) => s + (r.cumDone || 0), 0);
+  const weekValue = rows.reduce((s, r) => s + (r.weekValue || 0), 0);
+  const weekDiseaseTon = rows.reduce((s, r) => s + (typeof r.weekDiseaseTon === 'number' ? r.weekDiseaseTon : 0), 0);
+  const weekOverlayTon = rows.reduce((s, r) => s + (typeof r.weekOverlayTon === 'number' ? r.weekOverlayTon : 0), 0);
+  const onTimeCount = rows.filter(r => onTimeOf(r) === '按期').length;
+  const lagCount = rows.filter(r => onTimeOf(r) === '不能按期').length;
+  const doneCount = rows.filter(r => r.doneRate >= 1).length;
+  return {
+    region: rows[0]?.region || '合计',
+    projectCount: rows.length,
+    totalAmt, cumDone,
+    doneRate: totalAmt > 0 ? cumDone / totalAmt : null,
+    weekValue, weekDiseaseTon, weekOverlayTon,
+    onTimeCount, lagCount, doneCount,
+  };
+}

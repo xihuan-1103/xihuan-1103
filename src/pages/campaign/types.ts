@@ -105,3 +105,79 @@ export const zeroRankAgg = (): RankAgg => ({
   disease: emptyWorkInput(), overlay: emptyWorkInput(), ultraThin: emptyWorkInput(),
   hotRecycleM2: 0, value: 0,
 });
+
+/* ==================== 百日攻坚总表 ==================== */
+
+/**
+ * 百日攻坚总表 - 行数据（映射 Excel "百日攻坚总表" sheet 29 列）
+ * 数据来源：Excel 台账导入 / 或从 CampaignProject + DailyReport 动态聚合
+ *
+ * 列分组：
+ *   A-E  基本信息：序号 / 区域 / 项目部 / 路段项目 / 集团内外
+ *   F-L  金额进度：总金额 / 剩余金额 / 累计完成 / 完成率 / 工期完成百分比 / 进度偏差 / 本周完成产值
+ *   M-Q  工效预警：本周病害吨 / 本周罩面吨 / 病害日均工效 / 罩面日均工效 / 工效预警
+ *   R-AC 时间节点：预计开工 / 预计完工 / 截止9月30日计划率·实际率·偏差 / 截止10月31日计划率·实际率·偏差
+ *                  / 进度预警 / 距完工天数 / 按当前工效还需天数 / 能否按期
+ */
+export interface CampaignSummaryRow {
+  /** 序号（1-based，合计行=0或字符串"合计"） */
+  seq: number | string;
+  /** 区域（杭州/湖州/嘉兴/绍兴/金衢/台州/丽水/温州/甬舟/省外/特种路面） */
+  region: string;
+  /** 项目部名称 */
+  dept: string;
+  /** 路段/项目名称 */
+  road: string;
+  /** 集团内外（浙高运/沪杭甬/集团外） */
+  groupSide: string;
+  /** 总金额（万元） */
+  totalAmt: number;
+  /** 剩余金额（万元） */
+  remainAmt: number;
+  /** 累计完成（万元） */
+  cumDone: number;
+  /** 完成率（0-1） */
+  doneRate: number;
+  /** 工期完成百分比（0-1） */
+  schedRate: number;
+  /** 进度偏差（数字=偏差率；"已完工"=已完成；字符串=其他文字说明） */
+  scheduleDev: number | string;
+  /** 本周完成产值（万元） */
+  weekValue: number;
+  /** 本周病害吨 */
+  weekDiseaseTon: number;
+  /** 本周罩面吨 */
+  weekOverlayTon: number;
+  /** 本周病害日均工效（吨/天）；"无施工"=无数据 */
+  weekDiseaseEff: number | string;
+  /** 本周罩面日均工效（吨/天）；"无施工"=无数据 */
+  weekOverlayEff: number | string;
+  /** 工效预警（无施工/正常/病害工效偏低/罩面工效偏低/病害、罩面工效偏低） */
+  warn: string;
+  /** 预计开工日期 YYYY-MM-DD */
+  planStart: string;
+  /** 预计完工日期 YYYY-MM-DD */
+  planEnd: string;
+  /** 截止9月30日计划率（0-1） */
+  plan9Rate: number;
+  /** 截止9月30日实际率（0-1） */
+  actual9Rate: number;
+  /** 9月偏差（实际-计划，0.xx 或 -0.xx） */
+  dev9: number;
+  /** 截止10月31日计划率（0-1） */
+  plan10Rate: number;
+  /** 截止10月31日实际率（0-1） */
+  actual10Rate: number;
+  /** 10月偏差 */
+  dev10: number;
+  /** 进度预警（已完成/绿色-正常/黄色-轻微滞后/红色-严重滞后） */
+  schedWarn: string;
+  /** 距完工天数（已完工=0或"已完成"） */
+  daysLeft: number | string;
+  /** 按当前工效还需天数；"无施工"/"待开工" 等字符串 */
+  needDaysByPace: number | string;
+  /** 能否按期（按期/不能按期/已完工） */
+  onTime: string;
+  /** 合计行标记 */
+  _isSummary?: boolean;
+}
