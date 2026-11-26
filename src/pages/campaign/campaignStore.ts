@@ -6,10 +6,10 @@
  *    周列自动随时间往后生成（今天之后至少 4 周），也可手动「往后新增一周」
  */
 
-import type { CampaignProject, DailyReport, RankAgg, WeekSlot, WorkInput } from './types';
+import type { CampaignProject, CampaignCrew, DailyReport, RankAgg, WeekSlot, WorkInput } from './types';
 import { zeroRankAgg } from './types';
 
-const KEY = 'md_campaign_projects_v4';
+const KEY = 'md_campaign_projects_v7';
 const EXTRA_WEEKS_KEY = 'md_campaign_weeks_extra_v1';
 
 export const genId = (prefix: string) =>
@@ -89,7 +89,11 @@ const seed = (): CampaignProject[] => {
       baseDate: bd,
       baseDoneValue: 2118,
       pavementTotalQty: 2906,
-      pavementRemainQty: 500.96,
+      totalDiseaseQty: 120000, totalOverlayQty: 38, totalUltraThinQty: 12, totalHotRecycleQty: 85000,
+      baseDoneDiseaseQty: 42000, baseDoneOverlayQty: 14, baseDoneUltraThinQty: 4, baseDoneHotRecycleQty: 30000,
+      totalUltraThinDays: 6, totalHotRecycleDays: 10, remainUltraThinDays: 2, remainHotRecycleDays: 4,
+      baseCrewDaysDisease: 150, baseCrewDaysOverlay: 45, baseCrewDaysUltraThin: 6, baseCrewDaysHotRecycle: 10,
+      baseMaterialDisease: 42000, baseMaterialOverlay: 14, baseMaterialUltraThin: 4, baseMaterialHotRecycle: 30000,
       diseaseTotalDays: 78,
       diseaseRemainDays: 4,
       overlayTotalDays: 25,
@@ -106,7 +110,7 @@ const seed = (): CampaignProject[] => {
       workType: 'pavement',
       region: '台州',
       dept: '台州北',
-      groupSide: '浙高运',
+      groupSide: '沪杭甬',
       amount: 9600,
       contractName: '甬台温高速2026年路面专项养护工程施工合同',
       startDate: `${y}-09-10`,
@@ -116,7 +120,11 @@ const seed = (): CampaignProject[] => {
       baseDate: bd,
       baseDoneValue: 249.4,
       pavementTotalQty: 307.23,
-      pavementRemainQty: 0,
+      totalDiseaseQty: 36000, totalOverlayQty: 7, totalUltraThinQty: 3, totalHotRecycleQty: 12000,
+      baseDoneDiseaseQty: 36000, baseDoneOverlayQty: 7, baseDoneUltraThinQty: 3, baseDoneHotRecycleQty: 12000,
+      totalUltraThinDays: 3, totalHotRecycleDays: 4, remainUltraThinDays: 0, remainHotRecycleDays: 0,
+      baseCrewDaysDisease: 40, baseCrewDaysOverlay: 0, baseCrewDaysUltraThin: 3, baseCrewDaysHotRecycle: 4,
+      baseMaterialDisease: 36000, baseMaterialOverlay: 7, baseMaterialUltraThin: 3, baseMaterialHotRecycle: 12000,
       diseaseTotalDays: 13.5,
       diseaseRemainDays: 0,
       overlayTotalDays: 0,
@@ -143,7 +151,11 @@ const seed = (): CampaignProject[] => {
       baseDate: bd,
       baseDoneValue: 860,
       pavementTotalQty: 0,
-      pavementRemainQty: 0,
+      totalDiseaseQty: 0, totalOverlayQty: 0, totalUltraThinQty: 0, totalHotRecycleQty: 0,
+      baseDoneDiseaseQty: 0, baseDoneOverlayQty: 0, baseDoneUltraThinQty: 0, baseDoneHotRecycleQty: 0,
+      totalUltraThinDays: 0, totalHotRecycleDays: 0, remainUltraThinDays: 0, remainHotRecycleDays: 0,
+      baseCrewDaysDisease: 0, baseCrewDaysOverlay: 0, baseCrewDaysUltraThin: 0, baseCrewDaysHotRecycle: 0,
+      baseMaterialDisease: 0, baseMaterialOverlay: 0, baseMaterialUltraThin: 0, baseMaterialHotRecycle: 0,
       diseaseTotalDays: 100,
       diseaseRemainDays: 78,
       overlayTotalDays: 0,
@@ -171,7 +183,11 @@ const seed = (): CampaignProject[] => {
       baseDate: bd,
       baseDoneValue: 1200,
       pavementTotalQty: 1850,
-      pavementRemainQty: 650,
+      totalDiseaseQty: 95000, totalOverlayQty: 24, totalUltraThinQty: 9, totalHotRecycleQty: 60000,
+      baseDoneDiseaseQty: 38000, baseDoneOverlayQty: 9, baseDoneUltraThinQty: 3, baseDoneHotRecycleQty: 21000,
+      totalUltraThinDays: 4, totalHotRecycleDays: 6, remainUltraThinDays: 1, remainHotRecycleDays: 2,
+      baseCrewDaysDisease: 95, baseCrewDaysOverlay: 30, baseCrewDaysUltraThin: 4, baseCrewDaysHotRecycle: 6,
+      baseMaterialDisease: 38000, baseMaterialOverlay: 9, baseMaterialUltraThin: 3, baseMaterialHotRecycle: 21000,
       diseaseTotalDays: 60,
       diseaseRemainDays: 32,
       overlayTotalDays: 20,
@@ -198,7 +214,11 @@ const seed = (): CampaignProject[] => {
       baseDate: bd,
       baseDoneValue: 730,
       pavementTotalQty: 1420,
-      pavementRemainQty: 690,
+      totalDiseaseQty: 88000, totalOverlayQty: 18, totalUltraThinQty: 7, totalHotRecycleQty: 52000,
+      baseDoneDiseaseQty: 26000, baseDoneOverlayQty: 6, baseDoneUltraThinQty: 2, baseDoneHotRecycleQty: 15000,
+      totalUltraThinDays: 4, totalHotRecycleDays: 5, remainUltraThinDays: 2, remainHotRecycleDays: 2,
+      baseCrewDaysDisease: 80, baseCrewDaysOverlay: 25, baseCrewDaysUltraThin: 4, baseCrewDaysHotRecycle: 5,
+      baseMaterialDisease: 26000, baseMaterialOverlay: 6, baseMaterialUltraThin: 2, baseMaterialHotRecycle: 15000,
       diseaseTotalDays: 55,
       diseaseRemainDays: 28,
       overlayTotalDays: 18,
@@ -225,7 +245,11 @@ const seed = (): CampaignProject[] => {
       baseDate: bd,
       baseDoneValue: 1580,
       pavementTotalQty: 2380,
-      pavementRemainQty: 800,
+      totalDiseaseQty: 140000, totalOverlayQty: 30, totalUltraThinQty: 11, totalHotRecycleQty: 78000,
+      baseDoneDiseaseQty: 52000, baseDoneOverlayQty: 12, baseDoneUltraThinQty: 4, baseDoneHotRecycleQty: 28000,
+      totalUltraThinDays: 5, totalHotRecycleDays: 8, remainUltraThinDays: 2, remainHotRecycleDays: 3,
+      baseCrewDaysDisease: 110, baseCrewDaysOverlay: 38, baseCrewDaysUltraThin: 5, baseCrewDaysHotRecycle: 8,
+      baseMaterialDisease: 52000, baseMaterialOverlay: 12, baseMaterialUltraThin: 4, baseMaterialHotRecycle: 28000,
       diseaseTotalDays: 70,
       diseaseRemainDays: 36,
       overlayTotalDays: 24,
@@ -242,7 +266,7 @@ const seed = (): CampaignProject[] => {
       workType: 'pavement',
       region: '温州',
       dept: '温州西',
-      groupSide: '浙高运',
+      groupSide: '安徽交控',
       amount: 9800,
       contractName: '金丽温高速2026年路面专项养护工程施工合同',
       startDate: `${y}-09-10`,
@@ -252,7 +276,11 @@ const seed = (): CampaignProject[] => {
       baseDate: bd,
       baseDoneValue: 960,
       pavementTotalQty: 1750,
-      pavementRemainQty: 790,
+      totalDiseaseQty: 105000, totalOverlayQty: 22, totalUltraThinQty: 8, totalHotRecycleQty: 66000,
+      baseDoneDiseaseQty: 31000, baseDoneOverlayQty: 8, baseDoneUltraThinQty: 3, baseDoneHotRecycleQty: 18000,
+      totalUltraThinDays: 4, totalHotRecycleDays: 6, remainUltraThinDays: 2, remainHotRecycleDays: 2,
+      baseCrewDaysDisease: 85, baseCrewDaysOverlay: 28, baseCrewDaysUltraThin: 4, baseCrewDaysHotRecycle: 6,
+      baseMaterialDisease: 31000, baseMaterialOverlay: 8, baseMaterialUltraThin: 3, baseMaterialHotRecycle: 18000,
       diseaseTotalDays: 58,
       diseaseRemainDays: 30,
       overlayTotalDays: 16,
@@ -294,6 +322,63 @@ export function deleteProject(id: string) {
   saveProjects(getProjects().filter(p => p.id !== id));
 }
 
+/* ==================== 班组读写（基础信息配置维护） ==================== */
+
+const CREWS_KEY = 'md_campaign_crews_v1';
+
+// 种子班组（首次访问时写入）；dept = 所属项目部（班组资源测算汇总用）
+const CREWS_SEED: CampaignCrew[] = (() => {
+  const t = '2026-09-10T08:00:00Z';
+  return [
+    { id: 'crew-disease-1', name: '病害处治一班', type: '自营', dept: '杭州南', createdAt: t, updatedAt: t },
+    { id: 'crew-disease-2', name: '病害处治二班', type: '外协', dept: '杭州南', createdAt: t, updatedAt: t },
+    { id: 'crew-overlay-1', name: '罩面施工一班', type: '自营', dept: '丽水西', createdAt: t, updatedAt: t },
+    { id: 'crew-bridge-1', name: '桥隧加固一班', type: '外协', dept: '宁波', createdAt: t, updatedAt: t },
+  ];
+})();
+
+// 旧档案迁移：无 dept 字段的班组按名称补默认归属
+const CREW_DEPT_DEFAULTS: Record<string, string> = {
+  '病害处治一班': '杭州南',
+  '病害处治二班': '杭州南',
+  '罩面施工一班': '丽水西',
+  '桥隧加固一班': '宁波',
+};
+
+export function getCrews(): CampaignCrew[] {
+  try {
+    const raw = localStorage.getItem(CREWS_KEY);
+    if (raw) {
+      const list = JSON.parse(raw) as CampaignCrew[];
+      if (list.some(c => !c.dept)) {
+        const fixed = list.map(c => ({ ...c, dept: c.dept || CREW_DEPT_DEFAULTS[c.name] || '未分配' }));
+        localStorage.setItem(CREWS_KEY, JSON.stringify(fixed));
+        return fixed;
+      }
+      return list;
+    }
+  } catch { /* 解析失败时重建种子数据 */ }
+  localStorage.setItem(CREWS_KEY, JSON.stringify(CREWS_SEED));
+  return CREWS_SEED;
+}
+
+export function saveCrews(list: CampaignCrew[]) {
+  localStorage.setItem(CREWS_KEY, JSON.stringify(list));
+}
+
+/** 新增或更新班组（按 id 判断） */
+export function upsertCrew(c: CampaignCrew) {
+  const list = getCrews();
+  const i = list.findIndex(x => x.id === c.id);
+  if (i >= 0) list[i] = c;
+  else list.unshift(c);
+  saveCrews(list);
+}
+
+export function deleteCrew(id: string) {
+  saveCrews(getCrews().filter(c => c.id !== id));
+}
+
 /* ==================== 周计划读写 ==================== */
 
 /** 设置某项目某周计划量（qty<=0 时删除该周记录） */
@@ -312,13 +397,28 @@ export const planOf = (p: CampaignProject, weekKey: string) => p.weeklyPlans?.[w
 
 /* ==================== 每日产值填报 ==================== */
 
-const DAILY_KEY = 'md_campaign_daily_v2';
+const DAILY_KEY = 'md_campaign_daily_v3';
 
 /** 工效 = 吨 /（施工天数 × 投入班组数）；天或班组为 0 时返回 null（显示 "/"，即未施工） */
 export const effOf = (w: WorkInput): number | null =>
   (w.days > 0 && w.crews > 0) ? w.tons / (w.days * w.crews) : null;
 
 const w0 = (): WorkInput => ({ days: 0, crews: 0, qty: 0, tons: 0 });
+
+/** 本周周五（标准周 周五~周四 的起始日） */
+const curFriday = () => {
+  const now = new Date();
+  const d = new Date(now);
+  d.setDate(now.getDate() - (now.getDay() + 2) % 7);
+  return d;
+};
+const ymdOf = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+/** 相对本周周五偏移 n 天的日期串 */
+const dayOff = (n: number) => {
+  const d = new Date(curFriday());
+  d.setDate(d.getDate() + n);
+  return ymdOf(d);
+};
 
 const seedDaily = (): DailyReport[] => {
   const y = new Date().getFullYear();
@@ -478,8 +578,255 @@ const seedDaily = (): DailyReport[] => {
         },
       ],
     },
+    /* ===== 周报演示数据：上一周实际（上周一/二/三 = 本周五 -4/-3/-2） ===== */
+    {
+      id: 'dr_seed_pw1',
+      date: dayOff(-4),
+      region: '杭州',
+      dept: '杭州南',
+      reporter: '朱飞峰',
+      reporterPhone: '688454',
+      filledAt: `${dayOff(-4)} 08:40`,
+      lines: [
+        {
+          projectId: 'cp_seed_1',
+          disease: { days: 1, crews: 1, qty: 124, tons: 32.8 },
+          overlay: { days: 1, crews: 1, qty: 0.65, tons: 320 },
+          ultraThin: w0(),
+          hotRecycleM2: 0,
+          dayValue: 38,
+        },
+        {
+          projectId: 'cp_seed_2',
+          disease: { days: 1, crews: 1, qty: 80, tons: 21 },
+          overlay: w0(),
+          ultraThin: w0(),
+          hotRecycleM2: 0,
+          dayValue: 12,
+        },
+        {
+          projectId: 'cp_seed_5',
+          disease: { days: 1, crews: 1, qty: 160, tons: 42.3 },
+          overlay: w0(),
+          ultraThin: w0(),
+          hotRecycleM2: 0,
+          dayValue: 18.6,
+        },
+      ],
+    },
+    {
+      id: 'dr_seed_pw2',
+      date: dayOff(-3),
+      region: '杭州',
+      dept: '杭州北',
+      reporter: '陈志明',
+      reporterPhone: '681230',
+      filledAt: `${dayOff(-3)} 17:10`,
+      lines: [
+        {
+          projectId: 'cp_seed_4',
+          disease: { days: 1, crews: 2, qty: 450, tons: 180 },
+          overlay: w0(),
+          ultraThin: w0(),
+          hotRecycleM2: 0,
+          dayValue: 35,
+        },
+        {
+          projectId: 'cp_seed_1',
+          disease: { days: 1, crews: 1, qty: 110, tons: 29 },
+          overlay: { days: 1, crews: 1, qty: 0.7, tons: 350 },
+          ultraThin: w0(),
+          hotRecycleM2: 0,
+          dayValue: 41,
+        },
+      ],
+    },
+    {
+      id: 'dr_seed_pw3',
+      date: dayOff(-2),
+      region: '宁波',
+      dept: '宁波',
+      reporter: '黄伟杰',
+      reporterPhone: '690334',
+      filledAt: `${dayOff(-2)} 17:40`,
+      lines: [
+        {
+          projectId: 'cp_seed_6',
+          disease: { days: 1, crews: 2, qty: 300, tons: 88.5 },
+          overlay: { days: 1, crews: 1, qty: 0.8, tons: 420 },
+          ultraThin: w0(),
+          hotRecycleM2: 0,
+          dayValue: 52,
+        },
+        {
+          projectId: 'cp_seed_2',
+          disease: { days: 1, crews: 1, qty: 95, tons: 25 },
+          overlay: w0(),
+          ultraThin: w0(),
+          hotRecycleM2: 0,
+          dayValue: 14,
+        },
+        {
+          projectId: 'cp_seed_7',
+          disease: { days: 1, crews: 1, qty: 95, tons: 26.4 },
+          overlay: w0(),
+          ultraThin: { days: 1, crews: 1, qty: 1.2, tons: 180 },
+          hotRecycleM2: 0,
+          dayValue: 30,
+        },
+      ],
+    },
+    /* ===== 周报演示数据：本周实际（周一/二/三 = 本周五 +3/+4/+5） ===== */
+    {
+      id: 'dr_seed_cw1',
+      date: dayOff(3),
+      region: '杭州',
+      dept: '杭州南',
+      reporter: '朱飞峰',
+      reporterPhone: '688454',
+      filledAt: `${dayOff(3)} 08:40`,
+      lines: [
+        {
+          projectId: 'cp_seed_1',
+          disease: { days: 1, crews: 1, qty: 130, tons: 34 },
+          overlay: { days: 1, crews: 1, qty: 0.6, tons: 310 },
+          ultraThin: w0(),
+          hotRecycleM2: 0,
+          dayValue: 40,
+        },
+        {
+          projectId: 'cp_seed_2',
+          disease: { days: 1, crews: 1, qty: 85, tons: 22 },
+          overlay: w0(),
+          ultraThin: w0(),
+          hotRecycleM2: 0,
+          dayValue: 13,
+        },
+        {
+          projectId: 'cp_seed_5',
+          disease: { days: 1, crews: 1, qty: 155, tons: 41 },
+          overlay: w0(),
+          ultraThin: w0(),
+          hotRecycleM2: 0,
+          dayValue: 17,
+        },
+      ],
+    },
+    {
+      id: 'dr_seed_cw2',
+      date: dayOff(4),
+      region: '杭州',
+      dept: '杭州北',
+      reporter: '陈志明',
+      reporterPhone: '681230',
+      filledAt: `${dayOff(4)} 17:10`,
+      lines: [
+        {
+          projectId: 'cp_seed_4',
+          disease: { days: 1, crews: 2, qty: 430, tons: 175 },
+          overlay: { days: 1, crews: 1, qty: 0.9, tons: 430 },
+          ultraThin: w0(),
+          hotRecycleM2: 0,
+          dayValue: 48,
+        },
+        {
+          projectId: 'cp_seed_1',
+          disease: { days: 1, crews: 1, qty: 120, tons: 31 },
+          overlay: { days: 1, crews: 1, qty: 0.75, tons: 360 },
+          ultraThin: w0(),
+          hotRecycleM2: 0,
+          dayValue: 43,
+        },
+        {
+          projectId: 'cp_seed_6',
+          disease: { days: 1, crews: 2, qty: 290, tons: 86 },
+          overlay: w0(),
+          ultraThin: w0(),
+          hotRecycleM2: 0,
+          dayValue: 50,
+        },
+      ],
+    },
+    {
+      id: 'dr_seed_cw3',
+      date: dayOff(5),
+      region: '温州',
+      dept: '温州西',
+      reporter: '林少华',
+      reporterPhone: '696887',
+      filledAt: `${dayOff(5)} 09:20`,
+      lines: [
+        {
+          projectId: 'cp_seed_7',
+          disease: { days: 1, crews: 1, qty: 90, tons: 24 },
+          overlay: w0(),
+          ultraThin: w0(),
+          hotRecycleM2: 0,
+          dayValue: 28,
+        },
+        {
+          projectId: 'cp_seed_5',
+          disease: { days: 1, crews: 1, qty: 150, tons: 40 },
+          overlay: w0(),
+          ultraThin: w0(),
+          hotRecycleM2: 0,
+          dayValue: 16,
+        },
+      ],
+    },
   ];
 };
+
+/* ==================== 路面专项周报 · 周计划（项目×周 持久化） ==================== */
+
+const WEEKLY_PLAN_KEY = 'md_campaign_weekly_plans_v1';
+
+export interface WeekPlanWork { days: number; crews: number; qty: number; tons: number; }
+export interface WeekPlan {
+  disease: WeekPlanWork;    // 病害（qty: m²）
+  overlay: WeekPlanWork;    // 罩面（qty: km）
+  ultraThin: WeekPlanWork;   // 超薄（qty: km）
+  hotRecycle: WeekPlanWork;  // 就地热再生（qty: m²）
+  value: number;             // 产值（万元）
+}
+
+const wp0 = (): WeekPlanWork => ({ days: 0, crews: 0, qty: 0, tons: 0 });
+const fullPlan = (d: Partial<WeekPlanWork>, o: Partial<WeekPlanWork>, u: Partial<WeekPlanWork>, h: Partial<WeekPlanWork>, v: number): WeekPlan =>
+  ({ disease: { ...wp0(), ...d }, overlay: { ...wp0(), ...o }, ultraThin: { ...wp0(), ...u }, hotRecycle: { ...wp0(), ...h }, value: v });
+
+/**
+ * 周报计划数据：首次（localStorage 无数据）播种「本周计划」种子（上周预填口径演示）；
+ * 下周计划留空 → 页面展示「下一周 Tab 红色 + 未填提示」。
+ */
+export function ensureWeeklyPlanSeeds(): Record<string, WeekPlan> {
+  try {
+    const raw = localStorage.getItem(WEEKLY_PLAN_KEY);
+    if (raw) return JSON.parse(raw) as Record<string, WeekPlan>;
+  } catch { /* fallthrough */ }
+  const wk = ymdOf(curFriday());
+  const seeds: Record<string, WeekPlan> = {
+    [`cp_seed_1__${wk}`]: fullPlan(
+      { days: 2, crews: 2, qty: 250, tons: 65 }, { days: 2, crews: 2, qty: 1.3, tons: 650 },
+      { days: 0, crews: 0, qty: 0, tons: 0 }, { days: 1, crews: 1, qty: 800, tons: 120 }, 95),
+    [`cp_seed_2__${wk}`]: fullPlan(
+      { days: 2, crews: 2, qty: 180, tons: 48 }, { days: 0, crews: 0, qty: 0, tons: 0 },
+      { days: 0, crews: 0, qty: 0, tons: 0 }, { days: 0, crews: 0, qty: 0, tons: 0 }, 28),
+    [`cp_seed_4__${wk}`]: fullPlan(
+      { days: 2, crews: 4, qty: 900, tons: 360 }, { days: 1, crews: 1, qty: 0.9, tons: 450 },
+      { days: 0, crews: 0, qty: 0, tons: 0 }, { days: 0, crews: 0, qty: 0, tons: 0 }, 110),
+    [`cp_seed_5__${wk}`]: fullPlan(
+      { days: 2, crews: 2, qty: 320, tons: 85 }, { days: 0, crews: 0, qty: 0, tons: 0 },
+      { days: 1, crews: 1, qty: 0.6, tons: 90 }, { days: 0, crews: 0, qty: 0, tons: 0 }, 42),
+    [`cp_seed_6__${wk}`]: fullPlan(
+      { days: 2, crews: 4, qty: 600, tons: 180 }, { days: 1, crews: 1, qty: 0.8, tons: 400 },
+      { days: 0, crews: 0, qty: 0, tons: 0 }, { days: 0, crews: 0, qty: 0, tons: 0 }, 100),
+    [`cp_seed_7__${wk}`]: fullPlan(
+      { days: 2, crews: 2, qty: 190, tons: 50 }, { days: 1, crews: 1, qty: 1, tons: 150 },
+      { days: 0, crews: 0, qty: 0, tons: 0 }, { days: 0, crews: 0, qty: 0, tons: 0 }, 55),
+  };
+  localStorage.setItem(WEEKLY_PLAN_KEY, JSON.stringify(seeds));
+  return seeds;
+}
 
 export function getDailyReports(): DailyReport[] {
   try {

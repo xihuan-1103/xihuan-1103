@@ -1303,7 +1303,8 @@ export function createReceivableFromOrder(orderId: string): { ok: boolean; msg: 
 
 /** 「创建应收单」向导表单提交 */
 export interface ReceivableFormInput {
-  orderIds: string[];               // 选中的已批复且未创建应收单的计量单（同合同）
+  orderIds: string[];               // 选中的已批复且未创建应收单的计量单（同合同，可为空=无计量单直接发起）
+  contractId?: string;              // 所选合同（orderIds 为空时必填）
   docDate: string;                  // 单据日期 *
   bizDate: string;                  // 业务日期 *
   regCode: string;                  // 在册单据编号 *
@@ -1328,9 +1329,10 @@ export interface ReceivableFormInput {
 }
 
 /** 创建应收单（「创建应收单」向导提交）：
- *  校验计量单已批复（effective）且未创建应收单；金额口径按工程结算应收单自动汇总 */
+ *  校验计量单已批复（effective）且未创建应收单；未勾选计量单时按所选合同直接发起；
+ *  金额口径按工程结算应收单自动汇总 */
 export function createReceivableWithForm(input: ReceivableFormInput): { ok: boolean; msg: string; ro?: ReceivableOrder } {
-  if (input.orderIds.length === 0) return { ok: false, msg: '请选择计量单' };
+  if (input.orderIds.length === 0 && !input.contractId) return { ok: false, msg: '请选择合同（未勾选计量单时按所选合同发起）' };
   if (!input.docDate || !input.bizDate) return { ok: false, msg: '请填写单据日期与业务日期' };
   if (!input.regCode.trim()) return { ok: false, msg: '请填写在册单据编号' };
   if (!input.dept.trim()) return { ok: false, msg: '请填写部门' };
@@ -1349,10 +1351,11 @@ export function createReceivableWithForm(input: ReceivableFormInput): { ok: bool
     }
     chosen.push(o);
   }
-  const cid = chosen[0].contractId;
+  const cid = input.orderIds.length ? chosen[0].contractId : input.contractId!;
   if (chosen.some(o => o.contractId !== cid)) return { ok: false, msg: '所选计量单须属于同一合同' };
 
-  const contract = getMeasureContracts().find(c => c.id === cid)!;
+  const contract = getMeasureContracts().find(c => c.id === cid);
+  if (!contract) return { ok: false, msg: '所选合同不存在' };
   // 上期末累计 = 该合同其他已批复计量单（不含本次所选）批复金额合计
   const prevCum = orders
     .filter(o => o.contractId === cid && o.status === 'effective' && !input.orderIds.includes(o.id))
@@ -1370,9 +1373,11 @@ export function createReceivableWithForm(input: ReceivableFormInput): { ok: bool
   const ro: ReceivableOrder = {
     id: genId('ro'),
     code: `YSD-${ym}-${String(receivables.length + 1).padStart(3, '0')}`,
-    measureOrderId: chosen[0].id,
-    measureOrderCode: chosen.length === 1 ? chosen[0].code : `${chosen[0].code} 等${chosen.length}张`,
-    period: chosen.length === 1 ? chosen[0].period : `${chosen[chosen.length - 1].period}（${chosen.length}期合并）`,
+    measureOrderId: chosen[0]?.id || '',
+    measureOrderCode: chosen.length === 0 ? '未关联计量单'
+      : chosen.length === 1 ? chosen[0].code : `${chosen[0].code} 等${chosen.length}张`,
+    period: chosen.length === 0 ? '—'
+      : chosen.length === 1 ? chosen[0].period : `${chosen[chosen.length - 1].period}（${chosen.length}期合并）`,
     contractId: cid, contractCode: contract.code, contractName: contract.name,
     projectName: contract.projectName, ownerType: contract.ownerType, ownerName: contract.ownerName,
     amount: Math.round(collectible * 100) / 100,
@@ -1405,7 +1410,7 @@ export function createReceivableWithForm(input: ReceivableFormInput): { ok: bool
     curDeposit: deposit,
     curInvoiceAmount: input.curInvoiceAmount,
     curCollectible: Math.round(collectible * 100) / 100,
-    settleBatch: chosen.map(o => o.periodNo).sort((a, b) => a - b).join('、'),
+    settleBatch: chosen.map(o => o.periodNo).sort((a, b) => a - b).join('、') || '—',
     deposits: input.deposits.map(d => ({ ...d, id: genId('dep') })),
     invoices: input.invoices.map(v => ({ ...v, id: genId('inv') })),
     invoiceInfo: input.invoiceInfo,

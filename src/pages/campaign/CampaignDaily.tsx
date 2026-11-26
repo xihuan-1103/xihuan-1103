@@ -5,6 +5,7 @@
  *   区域 / 项目部 / 项目名称 + 病害(施工天数·投入班组数·m2·吨·工效) + 罩面(…·km·吨·工效)
  *   + 超薄(…·km·吨·工效) + 热再生(m2) + 本日完成产值(万元)
  * 工效 = 吨 /(施工天数 × 投入班组数)，天或班组为 0 显示 "/"（未施工）。
+ * 超限提示（不拦截，仅提示）：罩面/超薄工作量(km) > 2、本日产值(万元) > 200，填报/导入的超限值红色标注。
  *
  * 列表：按日期降序的填报记录卡片（块头：日期/区域/项目部/填报人/填报时间 + 编辑本日/删除本日），
  *       块内多项目表格 + 合计行 + 各项目累计产值（截至该日本日产值累计）。
@@ -25,6 +26,12 @@ interface EditLine extends DailyReportLine { }
 
 const numOr0 = (v: string) => Math.max(0, Number(v) || 0);
 const r2 = (n: number) => Math.round(n * 100) / 100;
+
+/* 超限提示阈值：罩面/超薄工作量(km) 最大 2；本日产值(万元) 最大 200 */
+const QTY_KM_MAX = 2;
+const DAY_VALUE_MAX = 200;
+/** 超限输入框红色标注（Tailwind v4 important 后缀语法，覆盖 numInput 默认样式） */
+const OVER_CLS = ' border-rose-400! text-rose-600! bg-rose-50!';
 
 /** 两级表头（列表卡片与弹窗共用） */
 function TwoLevelHead({ editable }: { editable?: boolean }) {
@@ -179,6 +186,9 @@ export default function CampaignDaily() {
     refresh();
     setOpen(false);
     toast(form.id ? '本日填报已更新' : '填报成功，记录已按日期归档展示', 'success');
+    if (lines.some(l => l.overlay.qty > QTY_KM_MAX || l.ultraThin.qty > QTY_KM_MAX || l.dayValue > DAY_VALUE_MAX)) {
+      toast('提示：存在超限数据（罩面/超薄工作量>2 km 或 本日产值>200 万元），请核对', 'info');
+    }
   };
 
   const removeReport = (r: DailyReport) => {
@@ -195,6 +205,16 @@ export default function CampaignDaily() {
 
   const sumWork = (r: DailyReport, key: 'disease' | 'overlay' | 'ultraThin', field: 'days' | 'crews' | 'qty' | 'tons') =>
     r2(r.lines.reduce((s, l) => s + (l[key][field] || 0), 0));
+
+  /* 超限提示汇总：罩面/超薄工作量(km)>2、本日产值(万元)>200 */
+  const overHints = form.lines.filter(l => l.projectId).flatMap(l => {
+    const n = projName(l.projectId);
+    const h: string[] = [];
+    if (l.overlay.qty > QTY_KM_MAX) h.push(`「${n}」罩面工作量 ${l.overlay.qty} km（>${QTY_KM_MAX}）`);
+    if (l.ultraThin.qty > QTY_KM_MAX) h.push(`「${n}」超薄工作量 ${l.ultraThin.qty} km（>${QTY_KM_MAX}）`);
+    if (l.dayValue > DAY_VALUE_MAX) h.push(`「${n}」本日产值 ${l.dayValue} 万元（>${DAY_VALUE_MAX}）`);
+    return h;
+  });
 
   return (
     <div>
@@ -287,13 +307,19 @@ export default function CampaignDaily() {
                             <React.Fragment key={wi}>
                               <td className={`${M.td} text-right font-mono`}>{w.days || '—'}</td>
                               <td className={`${M.td} text-right font-mono`}>{w.crews || '—'}</td>
-                              <td className={`${M.td} text-right font-mono`}>{w.qty || '—'}</td>
+                              <td className={`${M.td} text-right font-mono ${
+                                wi > 0 && w.qty > QTY_KM_MAX ? 'text-rose-600 font-bold' : ''}`}
+                                title={wi > 0 && w.qty > QTY_KM_MAX ? `工作量 ${w.qty} km，超过 ${QTY_KM_MAX}` : undefined}>
+                                {w.qty || '—'}</td>
                               <td className={`${M.td} text-right font-mono`}>{w.tons || '—'}</td>
                               <td className={`${M.td} text-right font-mono`}>{effCell(effOf(w))}</td>
                             </React.Fragment>
                           ))}
                           <td className={`${M.td} text-right font-mono`}>{l.hotRecycleM2 || '—'}</td>
-                          <td className={`${M.td} text-right font-mono font-bold`}>{l.dayValue || '—'}</td>
+                          <td className={`${M.td} text-right font-mono font-bold ${
+                            l.dayValue > DAY_VALUE_MAX ? 'text-rose-600' : ''}`}
+                            title={l.dayValue > DAY_VALUE_MAX ? `本日产值 ${l.dayValue} 万元，超过 ${DAY_VALUE_MAX}` : undefined}>
+                            {l.dayValue || '—'}</td>
                           <td className={`${M.td} text-right font-mono text-slate-600`}>
                             {fmtNum(r2(cumValueOf(l.projectId, r.date)))}
                           </td>
@@ -393,18 +419,18 @@ export default function CampaignDaily() {
                       </td>
                       {(['disease', 'overlay', 'ultraThin'] as const).map(key => {
                         const w = l[key];
-                        const num = (field: 'days' | 'crews' | 'qty' | 'tons') => (
+                        const num = (field: 'days' | 'crews' | 'qty' | 'tons', warn = false) => (
                           <input type="number" min={0} step="0.01"
                             value={(w[field] as number) || ''}
                             placeholder="0"
                             onChange={e => updateWork(i, key, { [field]: numOr0(e.target.value) } as Partial<WorkInput>)}
-                            className={numInput} />
+                            className={`${numInput}${warn ? OVER_CLS : ''}`} />
                         );
                         return (
                           <React.Fragment key={key}>
                             <td className={M.td}>{num('days')}</td>
                             <td className={M.td}>{num('crews')}</td>
-                            <td className={M.td}>{num('qty')}</td>
+                            <td className={M.td}>{num('qty', key !== 'disease' && w.qty > QTY_KM_MAX)}</td>
                             <td className={M.td}>{num('tons')}</td>
                             <td className={`${M.td} text-right font-mono bg-emerald-50/70`}>
                               {effCell(effOf(w))}
@@ -422,7 +448,7 @@ export default function CampaignDaily() {
                         <input type="number" min={0} step="0.01" value={l.dayValue || ''}
                           placeholder="0"
                           onChange={e => updateLine(i, { dayValue: numOr0(e.target.value) })}
-                          className={`${numInput} w-16`} />
+                          className={`${numInput} w-16${l.dayValue > DAY_VALUE_MAX ? OVER_CLS : ''}`} />
                       </td>
                       <td className={M.td}>
                         <span className="text-slate-400 text-xs">提交后计算</span>
@@ -438,6 +464,11 @@ export default function CampaignDaily() {
             </table>
           </div>
         </div>
+        {overHints.length > 0 && (
+          <div className="mt-2 px-3 py-2 rounded bg-rose-50 border border-rose-200 text-xs text-rose-700 leading-relaxed">
+            ⚠ 超限提示（不拦截提交，请核对无误）：{overHints.join('；')}
+          </div>
+        )}
         <div className="mt-2 text-xs text-slate-400">
           共 {form.lines.length} 行，其中已选项目 {form.lines.filter(l => l.projectId).length} 行；未选择项目的空行不会提交。
         </div>

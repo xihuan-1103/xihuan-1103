@@ -49,9 +49,18 @@ const MENU_DATA: MenuItem[] = [
   },
   {
     title: '系统管理',
-    path: '/system-admin',
+    path: '/system/organization',
     icon: <Settings size={18} />,
-    children: []
+    children: [
+      {
+        title: '权限管理',
+        path: '/system/organization',
+        children: [
+          { title: '组织管理', path: '/system/organization' },
+          { title: '人员管理', path: '/system/personnel' },
+        ],
+      },
+    ],
   },
   {
     title: '项目管理',
@@ -187,6 +196,15 @@ const MENU_DATA: MenuItem[] = [
           { title: '设备编码体系', path: '/equipment/code' },
         ]
       },
+      {
+        title: '固定资产管理',
+        path: '/equipment/assets/vehicle',
+        children: [
+          { title: '行政车辆管理', path: '/equipment/assets/vehicle' },
+          { title: '单车费用核算表', path: '/equipment/assets/vehicle-cost' },
+          { title: '车辆费用汇总', path: '/equipment/assets/vehicle-summary' },
+        ]
+      },
     ]
   },
   {
@@ -303,6 +321,8 @@ const MENU_DATA: MenuItem[] = [
         children: [
           { title: '百日攻坚总表', path: '/campaign/summary' },
           { title: '数据看板', path: '/campaign/dashboard' },
+          { title: '预警中心', path: '/campaign/alerts' },
+          { title: '路面专项周报', path: '/campaign/pavement-weekly' },
         ]
       },
     ]
@@ -313,7 +333,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [activeTopMenu, setActiveTopMenu] = useState(MENU_DATA[0]);
-  const [expandedMenus, setExpandedMenus] = useState<string[]>(['项目管理', '基础信息设置', '班组管理', '合同管理', '养护施工', '产值管理', '材料业务', '出入库管理', '基础数据', '计量业务', '应收管理', '攻坚配置', '产值晾晒', '攻坚汇总']);
+  const [expandedMenus, setExpandedMenus] = useState<string[]>(['项目管理', '基础信息设置', '班组管理', '合同管理', '养护施工', '产值管理', '材料业务', '出入库管理', '基础数据', '计量业务', '应收管理', '攻坚配置', '产值晾晒', '攻坚汇总', '固定资产管理']);
 
   // 去掉 query string 后的纯路径，用于菜单匹配
   const pathnameOnly = location.pathname;

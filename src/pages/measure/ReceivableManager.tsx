@@ -169,10 +169,10 @@ export default function ReceivableManager({ onRefresh }: Props) {
     setWizOpen(true);
   };
 
-  /** 选择步 → 填报步：按所选计量单初始化表单 */
+  /** 选择步 → 填报步：按所选合同初始化表单（未勾选计量单也可发起） */
   const goStep2 = () => {
-    if (wizOrderIds.length === 0) { toast('请至少勾选一张计量单', 'error'); return; }
-    const c = contracts.find(x => x.id === wizContractId)!;
+    const c = contracts.find(x => x.id === wizContractId);
+    if (!c) { toast('请先选择合同', 'error'); return; }
     setF(f0 => ({ ...f0, dept: `${c.projectName}办公室`, bizContent: '工程款' }));
     setInvoiceAmount(curMeasure);
     setInvoiceLines([{ name: '工程款', taxCategory: '工程服务', amount: curMeasure, rate: '0.09', invoiced: 0 }]);
@@ -191,6 +191,7 @@ export default function ReceivableManager({ onRefresh }: Props) {
     });
     const res = createReceivableWithForm({
       orderIds: wizOrderIds,
+      contractId: wizContractId,
       docDate: f.docDate, bizDate: f.bizDate, regCode: f.regCode, dept: f.dept, bizContent: f.bizContent,
       agingStart: f.agingStart || undefined,
       invoiceReceived: f.invoiceReceived === '是',
@@ -284,7 +285,7 @@ export default function ReceivableManager({ onRefresh }: Props) {
                     </td>
                     <td className={M.td}>
                       <div className="font-mono text-xs text-slate-600">{r.measureOrderCode}</div>
-                      <div className="text-xs text-slate-500">{r.period}{r.settleBatch ? ` · 第 ${r.settleBatch} 期` : ''}</div>
+                      <div className="text-xs text-slate-500">{r.period !== '—' ? `${r.period}${r.settleBatch && r.settleBatch !== '—' ? ` · 第 ${r.settleBatch} 期` : ''}` : '未关联计量单（按合同直接发起）'}</div>
                     </td>
                     <td className={M.td}>
                       <div className="font-medium text-slate-800">{r.contractName}</div>
@@ -319,7 +320,7 @@ export default function ReceivableManager({ onRefresh }: Props) {
               })}
               {filtered.length === 0 && (
                 <tr><td colSpan={10} className={`${M.td} text-center text-slate-400 py-10`}>
-                  暂无应收单。点击右上角「创建应收单」，选择合同与已批复计量单后按工程结算应收单样式填报。
+                  暂无应收单。点击右上角「创建应收单」，选择合同后按工程结算应收单样式填报；已批复计量单可合并勾选，无计量单也可按合同直接发起。
                 </td></tr>
               )}
             </tbody>
@@ -337,8 +338,8 @@ export default function ReceivableManager({ onRefresh }: Props) {
         footer={<>
           {wizStep === 2 && <button className={M.button.ghost} onClick={() => setWizStep(1)}>上一步</button>}
           {wizStep === 1 && (
-            <button className={M.button.primary} disabled={wizOrderIds.length === 0} onClick={goStep2}
-              style={wizOrderIds.length === 0 ? { opacity: .4 } : undefined}>下一步 · 填报应收单</button>
+            <button className={M.button.primary} disabled={!wizContractId} onClick={goStep2}
+              style={!wizContractId ? { opacity: .4 } : undefined}>下一步 · 填报应收单</button>
           )}
           {wizStep === 2 && (
             <button className={M.button.primary} onClick={doCreate}>确认创建应收单</button>
@@ -363,6 +364,7 @@ export default function ReceivableManager({ onRefresh }: Props) {
           <div className="space-y-3">
             <div className="bg-sky-50 border border-sky-200 rounded-lg p-3 text-xs text-sky-700 leading-relaxed">
               通过下拉选择合同（仅主合同），选中后下方展示该合同下的计量单；仅<b>已批复且未创建应收单</b>的计量单可勾选（可多选，合并生成一张应收单），灰色行为不可选。
+              <b>该合同下没有计量单（或不勾选）也可以直接发起</b>，此时按所选合同创建，计量相关金额需在填报步手工录入。
             </div>
             <div>
               <label className={M.label}>选择合同<Req /></label>
@@ -380,7 +382,7 @@ export default function ReceivableManager({ onRefresh }: Props) {
                     <span>业主：<b className="text-slate-800">{wizContract.ownerName}</b></span>
                     <span>项目部：{wizContract.projectName}</span>
                     <TypePill text="主合同" tone="violet" />
-                    <span className="text-cyan-600">已选 {wizOrderIds.length} 张 · 本期计量金额合计 <b>{fmtMoney(curMeasure)}</b></span>
+                    <span className="text-cyan-600">已选 {wizOrderIds.length} 张 · 本期计量金额合计 <b>{fmtMoney(curMeasure)}</b>{wizOrderIds.length === 0 && <span className="text-amber-600">（未勾选计量单，将按合同直接发起）</span>}</span>
                   </div>
                 )}
                 <div className="flex items-center gap-3">
@@ -507,7 +509,7 @@ export default function ReceivableManager({ onRefresh }: Props) {
                   onChange={e => setInvoiceAmount(Number(e.target.value) || 0)} className={M.input} />
               </div>
               <RO label="本期可收金额" value={<b className="text-sky-700 text-base">{fmtMoney(collectible)}</b>} required />
-              <RO label="结算批次" value={`第 ${chosenOrders.map(o => o.periodNo).sort((a, b) => a - b).join('、')} 期`} required />
+              <RO label="结算批次" value={chosenOrders.length ? `第 ${chosenOrders.map(o => o.periodNo).sort((a, b) => a - b).join('、')} 期` : '—（未关联计量单）'} required />
               <RO label="结算币别" value="CNY 人民币" required />
               <RO label="多币别" value="否" />
             </div>
@@ -789,7 +791,7 @@ export default function ReceivableManager({ onRefresh }: Props) {
                   <div className="text-slate-500">单据日期：{view.docDate}</div>
                   <div className="text-slate-500">业务日期：{view.bizDate}</div>
                   <div className="text-slate-500">业务内容：{view.bizContent}</div>
-                  <div className="text-slate-500">结算批次：第 {view.settleBatch} 期 · {view.currency}</div>
+                  <div className="text-slate-500">结算批次：{view.settleBatch && view.settleBatch !== '—' ? `第 ${view.settleBatch} 期` : '未关联计量单'} · {view.currency}</div>
                   <div className="text-slate-500">本期计量金额：<b className="text-slate-800">{fmtMoney(view.curMeasureAmount || 0)}</b></div>
                   <div className="text-slate-500">上期末累计：{fmtMoney(view.prevCumMeasureAmount || 0)}</div>
                   <div className="text-slate-500">到本期末累计：<b className="text-slate-800">{fmtMoney(view.endCumMeasureAmount || 0)}</b></div>

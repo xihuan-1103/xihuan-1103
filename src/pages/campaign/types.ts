@@ -5,6 +5,24 @@
 /** 工程类型：路面专项 / 路基桥隧 */
 export type WorkType = 'pavement' | 'subgrade';
 
+/** 项目状态：已完工 / 进行中 / 未开工 */
+export type ProjectStatus = 'finished' | 'ongoing' | 'notstarted';
+export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
+  finished: '已完工',
+  ongoing: '进行中',
+  notstarted: '未开工',
+};
+
+/** 施工班组（基础信息配置维护：名称 + 类型） */
+export interface CampaignCrew {
+  id: string;
+  name: string;
+  type: '自营' | '外协';
+  dept?: string;           // 所属项目部（班组资源测算按项目部/区域汇总现有班组数）
+  createdAt: string;
+  updatedAt: string;
+}
+
 export const WORK_TYPE_LABELS: Record<WorkType, string> = {
   pavement: '路面专项',
   subgrade: '路基桥隧',
@@ -28,6 +46,7 @@ export interface CampaignProject {
   shortName: string;       // 项目简称
   roadSection: string;     // 路段名称
   workType: WorkType;      // 工程类型（路面专项 / 路基桥隧）
+  projectStatus?: ProjectStatus; // 项目状态（已完工 / 进行中 / 未开工），基础信息配置统计用
   region: string;          // 区域（组织维度，不在配置表单维护：按填报账号所属组织自动带出，演示由预置数据提供）
   dept: string;            // 项目部（组织维度，不在配置表单维护，同上）
   groupSide: string;       // 集团内外（如：浙高运）
@@ -42,11 +61,40 @@ export interface CampaignProject {
   baseDate: string;        // 基准日（固定 9.10）
   baseDoneValue: number;   // 基准日已完成产值（万元）/ 基准日工程量
   pavementTotalQty: number;   // 路面专项总工程量
-  pavementRemainQty: number;  // 路面专项剩余工程量
+  /* 分类型总工程量（路面专项）：病害 m² / 罩面 km / 超薄 km / 热再生 m² */
+  totalDiseaseQty?: number;
+  totalOverlayQty?: number;
+  totalUltraThinQty?: number;
+  totalHotRecycleQty?: number;
+  /* 基准日（9.10）已完成工程量（分类型，单位同总工程量） */
+  baseDoneDiseaseQty?: number;
+  baseDoneOverlayQty?: number;
+  baseDoneUltraThinQty?: number;
+  baseDoneHotRecycleQty?: number;
+  /* 总计划/剩余工作日（超薄、热再生；病害/罩面沿用 diseaseTotalDays / overlayTotalDays 等） */
+  totalUltraThinDays?: number;
+  totalHotRecycleDays?: number;
+  remainUltraThinDays?: number;
+  remainHotRecycleDays?: number;
+  /* 截止基准日累计工作日（单位：天）。取数关系：总计划工作日 − 截止基准日累计工作日 = 截止基准日剩余工作日 */
+  baseCumDaysDisease?: number;
+  baseCumDaysOverlay?: number;
+  baseCumDaysUltraThin?: number;
+  baseCumDaysHotRecycle?: number;
+  /* 截止基准日累计班组日（单位：天） */
+  baseCrewDaysDisease?: number;
+  baseCrewDaysOverlay?: number;
+  baseCrewDaysUltraThin?: number;
+  baseCrewDaysHotRecycle?: number;
+  /* 截止基准日累计用料（单位同各分类工程量：病害 m² / 罩面 km / 超薄 km / 热再生 m²） */
+  baseMaterialDisease?: number;
+  baseMaterialOverlay?: number;
+  baseMaterialUltraThin?: number;
+  baseMaterialHotRecycle?: number;
   diseaseTotalDays: number;   // 总计划工作日-病害
-  diseaseRemainDays: number; // 剩余工作日-病害
+  diseaseRemainDays: number; // 剩余工作日-病害（派生：总计划 − 截止基准日累计工作日）
   overlayTotalDays: number;   // 总计划工作日-罩面
-  overlayRemainDays: number; // 剩余工作日-罩面
+  overlayRemainDays: number; // 剩余工作日-罩面（派生：总计划 − 截止基准日累计工作日）
 
   /* ===== 周倒排计划（weekKey → 本周计划量），随时间往后持续新增 ===== */
   weeklyPlans: Record<string, number>;

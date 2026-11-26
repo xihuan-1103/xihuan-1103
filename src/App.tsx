@@ -21,6 +21,8 @@ import ContractInventoryList from './pages/ContractInventoryList';
 import Workbench from './pages/Workbench';
 import PortalAdmin from './pages/portal/PortalAdmin';
 import SystemAdmin from './pages/system/SystemAdmin';
+import OrganizationManager from './pages/system/OrganizationManager';
+import PersonnelManager from './pages/system/PersonnelManager';
 import ProjectInventoryList from './pages/ProjectInventoryList';
 import ConstructionLogFilling from './pages/ConstructionLogFilling';
 import MaintenanceConstructionLog from './pages/MaintenanceConstructionLog';
@@ -45,6 +47,9 @@ import EquipmentCost from './pages/equipment/EquipmentCost';
 import EquipmentCodeManager from './pages/equipment/EquipmentCodeManager';
 import VehicleDailyConsumption from './pages/equipment/VehicleDailyConsumption';
 import VehicleYearlyConsumption from './pages/equipment/VehicleYearlyConsumption';
+import AdminVehicleLedger from './pages/equipment/AdminVehicleLedger';
+import VehicleCostLedger from './pages/equipment/VehicleCostLedger';
+import VehicleCostSummary from './pages/equipment/VehicleCostSummary';
 import SubContractConfirmation from './pages/subcontract/SubContractConfirmation';
 import SubContractPool from './pages/subcontract/SubContractPool';
 import SubContractInventory from './pages/subcontract/SubContractInventory';
@@ -63,6 +68,8 @@ import CampaignRank from './pages/campaign/CampaignRank';
 import CampaignWeekly from './pages/campaign/CampaignWeekly';
 import CampaignSummary from './pages/campaign/CampaignSummary';
 import CampaignDashboard from './pages/campaign/CampaignDashboard';
+import CampaignAlerts from './pages/campaign/CampaignAlerts';
+import CampaignPavementWeekly from './pages/campaign/CampaignPavementWeekly';
 
 export default function App() {
   const [projects, setProjects] = useState<Project[]>(MOCK_PROJECTS);
@@ -109,6 +116,8 @@ export default function App() {
           <Route path="/workbench" element={<Workbench />} />
           <Route path="/portal-admin" element={<PortalAdmin />} />
           <Route path="/system-admin" element={<SystemAdmin />} />
+          <Route path="/system/organization" element={<OrganizationManager />} />
+          <Route path="/system/personnel" element={<PersonnelManager />} />
           <Route path="/project/list" element={<ProjectList projects={projects} onDelete={handleDeleteProject} />} />
           <Route path="/project/setup" element={<ProjectSetup onSave={handleSaveProject} projects={projects} contracts={contracts} />} />
           <Route path="/project/inventory/list" element={<ProjectInventoryList projects={projects} contracts={contracts} />} />
@@ -162,6 +171,10 @@ export default function App() {
           <Route path="/equipment/usage/vehicle-yearly" element={<VehicleYearlyConsumption />} />
           {/* 设备管理 - 设备类型管理 */}
           <Route path="/equipment/code" element={<EquipmentCodeManager />} />
+          {/* 设备管理 - 固定资产管理 */}
+          <Route path="/equipment/assets/vehicle" element={<AdminVehicleLedger />} />
+          <Route path="/equipment/assets/vehicle-cost" element={<VehicleCostLedger />} />
+          <Route path="/equipment/assets/vehicle-summary" element={<VehicleCostSummary />} />
           {/* 计量应收 - 计量业务 */}
           <Route path="/measure/pool" element={<MeasurePool />} />
           <Route path="/measure/statement" element={<MeasureStatementManager />} />
@@ -179,6 +192,8 @@ export default function App() {
           <Route path="/campaign/weekly" element={<CampaignWeekly />} />
           <Route path="/campaign/summary" element={<CampaignSummary />} />
           <Route path="/campaign/dashboard" element={<CampaignDashboard />} />
+          <Route path="/campaign/alerts" element={<CampaignAlerts />} />
+          <Route path="/campaign/pavement-weekly" element={<CampaignPavementWeekly />} />
           <Route path="*" element={<div className="p-8 text-center text-gray-500">页面开发中...</div>} />
         </Routes>
       </Layout>

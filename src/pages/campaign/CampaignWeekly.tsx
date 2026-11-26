@@ -12,10 +12,15 @@
  */
 
 import React, { useMemo, useState } from 'react';
+import { BarChart3 } from 'lucide-react';
+import {
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
+} from 'recharts';
 import { M, Select, fmtNum } from './_shared';
 import type { CampaignProject, WeekSlot } from './types';
 import {
   getProjects, planOf, cumValueOf, buildWeeks, baseDateOf, getExtraWeeks, todayStr,
+  getDailyReports,
 } from './campaignStore';
 
 type Level = 'dept' | 'region' | 'group';
@@ -163,6 +168,90 @@ export default function CampaignWeekly() {
   const totalRate = total.amount > 0 ? total.cumDone / total.amount : null;
   const leadCols = 7 + shown.length * 3;
 
+  /* ===== 图表数据 ①：当前周报区间内每天的完成情况（随层级筛选，取自每日产值填报） ===== */
+  const centerWeek = allWeeks[cIdx] || null;
+  const dayRows = useMemo(() => {
+    if (!centerWeek) return [];
+    // 周区间逐日铺底（无填报日补 0）
+    const days: {
+      date: string; value: number; dQty: number; oQty: number;
+      dTons: number; oTons: number; dDays: number; oDays: number;
+    }[] = [];
+    const idx: Record<string, number> = {};
+    for (let d = parseD(centerWeek.start); d <= parseD(centerWeek.end); d = new Date(d.getTime() + DAY)) {
+      const key = ymdOf(d);
+      idx[key] = days.length;
+      days.push({ date: key, value: 0, dQty: 0, oQty: 0, dTons: 0, oTons: 0, dDays: 0, oDays: 0 });
+    }
+    getDailyReports().forEach(r => {
+      if (r.date < centerWeek.start || r.date > centerWeek.end) return;
+      // 层级过滤：项目部 / 区域 / 集团（与下方对比表口径一致）
+      if (level === 'dept' && (!curDept || r.dept !== curDept.dept)) return;
+      if (level === 'region' && r.region !== curRegion) return;
+      r.lines.forEach(l => {
+        const cell = days[idx[r.date]];
+        if (!cell) return;
+        cell.value += l.dayValue || 0;
+        cell.dQty += l.disease.qty || 0;
+        cell.oQty += l.overlay.qty || 0;
+        cell.dTons += l.disease.tons || 0;
+        cell.oTons += l.overlay.tons || 0;
+        cell.dDays += l.disease.days || 0;
+        cell.oDays += l.overlay.days || 0;
+      });
+    });
+    // 周累计工效（自周初累计至当日：吨 ÷ 累计施工天数）
+    let cdT = 0, coT = 0, cdD = 0, coD = 0;
+    return days.map(x => {
+      cdT += x.dTons; coT += x.oTons; cdD += x.dDays; coD += x.oDays;
+      return {
+        label: x.date.slice(5),
+        value: r2(x.value),
+        dQty: r2(x.dQty),
+        oQty: r2(x.oQty),
+        dEff: cdD > 0 ? r2(cdT / cdD) : 0,
+        oEff: coD > 0 ? r2(coT / coD) : 0,
+      };
+    });
+  }, [centerWeek, level, curDept, curRegion]);
+
+  /* ===== 图表数据 ②：每周计划率 / 实际率（当前层级汇总口径，与合计行一致） ===== */
+  const weekRateData = useMemo(() => shown.map((w, j) => {
+    const c = total.weeks[j];
+    return {
+      name: w.label + (w.key === allWeeks[curWeekIdx]?.key ? ' ·当周' : ''),
+      plan: c.plan === null ? null : Number((c.plan * 100).toFixed(1)),
+      act: c.act === null ? null : Number((c.act * 100).toFixed(1)),
+    };
+  }), [shown, total, allWeeks, curWeekIdx]);
+
+  /** 每日完成迷你柱状图（产值 / 病害 / 罩面 / 周累计工效） */
+  const miniBars = (title: string, unit: string, series: {
+    key: string; name: string; fill: string;
+  }[]) => (
+    <div className="border border-slate-200 rounded-lg p-3">
+      <div className="text-xs font-semibold text-slate-600 mb-2">
+        {title}<span className="ml-1 font-normal text-slate-400">（{unit}）</span>
+      </div>
+      <div style={{ height: 140 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={dayRows} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+            <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#64748b' }} interval={0} />
+            <YAxis width={38} tick={{ fontSize: 10, fill: '#64748b' }} />
+            <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+            {series.map(s => (
+              <Bar key={s.key} dataKey={s.key} name={s.name} fill={s.fill}
+                radius={[3, 3, 0, 0]} maxBarSize={22} />
+            ))}
+            {series.length > 1 && <Legend wrapperStyle={{ fontSize: 11 }} iconSize={9} />}
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+
+
   const devCls = (d: number | null) =>
     d === null ? 'text-slate-400'
       : d >= 0 ? 'text-emerald-600 font-semibold' : 'text-rose-600 font-semibold';
@@ -233,6 +322,64 @@ export default function CampaignWeekly() {
           ))}
         </div>
       </div>
+
+      {/* 图表区：当前周报区间每日完成情况 + 每周计划率/实际率（横向柱状图） */}
+      {projects.length > 0 && centerWeek && (
+        <div className="bg-white border border-slate-200 rounded-xl p-4 mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div className="flex items-center gap-1.5 text-sm font-bold text-slate-700">
+              <BarChart3 size={15} className="text-orange-500" />
+              每周完成情况
+              <span className="text-xs font-normal text-slate-400 ml-1">
+                当前周报区间 {centerWeek.start} ~ {centerWeek.end}（第{centerWeek.seq}周）
+                ，数据随层级筛选联动
+              </span>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
+            {/* 左：当前周报区间每日完成情况（4 迷你柱状图 2×2） */}
+            <div className="xl:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
+              {miniBars('每日完成产值', '万元', [{ key: 'value', name: '完成产值', fill: '#f97316' }])}
+              {miniBars('每日病害完成工程量', 'm2', [{ key: 'dQty', name: '病害', fill: '#38bdf8' }])}
+              {miniBars('每日罩面完成工程量', 'km', [{ key: 'oQty', name: '罩面', fill: '#a78bfa' }])}
+              {miniBars('周累计工效（自周初累计至当日）', '吨/工日', [
+                { key: 'dEff', name: '病害工效', fill: '#38bdf8' },
+                { key: 'oEff', name: '罩面工效', fill: '#fbbf24' },
+              ])}
+            </div>
+            {/* 右：每周计划率 / 实际率（横向柱状图） */}
+            <div className="border border-slate-200 rounded-lg p-3">
+              <div className="text-xs font-semibold text-slate-600 mb-2">
+                每周计划率 / 实际率<span className="ml-1 font-normal text-slate-400">（%，当前层级合计口径）</span>
+              </div>
+              <div style={{ height: 316 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={weekRateData} layout="vertical"
+                    margin={{ top: 4, right: 16, bottom: 0, left: 8 }}>
+                    <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10, fill: '#64748b' }}
+                      unit="%" />
+                    <YAxis type="category" dataKey="name" width={92}
+                      tick={{ fontSize: 11, fill: '#334155' }} />
+                    <Tooltip
+                      formatter={(v: unknown) =>
+                        (v === null || v === undefined || typeof v !== 'number') ? '—' : `${v}%`}
+                      contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+                    <Legend wrapperStyle={{ fontSize: 11 }} iconSize={9} />
+                    <Bar dataKey="plan" name="计划率" fill="#fdba74" maxBarSize={14}
+                      radius={[0, 3, 3, 0]} />
+                    <Bar dataKey="act" name="实际率" fill="#f97316" maxBarSize={14}
+                      radius={[0, 3, 3, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-2 leading-relaxed">
+                计划率 / 实际率与下方对比表合计行口径一致（金额加权）；尚未开始的周实际率无数据。
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 对比表 */}
       {projects.length === 0 ? (

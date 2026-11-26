@@ -1,7 +1,8 @@
 /**
  * 百日攻坚 - 数据看板（清新浅色主题 · 双 Tab）
  *
- * Tab 1「作战总览」：核心指标 → 今日战报 → 多维对比（3 图）→ 区域作战看板 → 预警清单
+ * Tab 1「作战总览」：核心指标 → 集团内/集团外对比卡片（时间+区域过滤）→ 今日战报 → 班组工作日图
+ *   （病害/罩面：总计划·累计完成·剩余，按区域/项目部/项目 tab + 搜索）→ 多维对比（3 图）→ 区域作战看板 → 预警清单
  * Tab 2「综合分析」：顶部条件过滤（区域 / 项目部 / 路段项目关键字 / 进度预警 / 能否按期 + 重置）
  *   → KPI 指标卡（10 项）→ 进度预警分布（环形图）→ 区域 开累完成率 vs 工期完成率（加权）
  *   → 项目部 工期进度偏差率 → 区域 本周日均工效双指标对比
@@ -23,6 +24,8 @@ import {
 } from './campaignStore';
 import type { CampaignProject } from './types';
 import { WORK_TYPE_LABELS } from './types';
+import CrewResourceCalculator from './CrewResourceCalculator';
+import CrewDaysChart from './CrewDaysChart';
 
 const DAY = 86400000;
 const parseD = (s: string) => new Date(`${s}T00:00:00`);
@@ -160,6 +163,96 @@ export default function CampaignDashboard() {
       gapWorkDays: projStats.reduce((s, x) => s + x.gapWorkDays, 0),
     };
   }, [projStats]);
+
+  /* ==================== 作战总览：集团内 / 集团外 对比卡片 ==================== */
+  /* 分组口径：集团内 = groupSide 为「浙高运 / 沪杭甬」；其余（安徽交控、高速地方等）= 集团外 */
+  const [grpTime, setGrpTime] = useState<'cum' | 'year' | 'month' | 'week' | 'day' | 'custom'>('cum');
+  const [grpFrom, setGrpFrom] = useState('');
+  const [grpTo, setGrpTo] = useState('');
+  const [grpRegion, setGrpRegion] = useState('');
+  const [grpDept, setGrpDept] = useState('');
+
+  const grpRegionOpts = useMemo(
+    () => [...new Set(projStats.map(x => x.p.region).filter(Boolean))].sort(),
+    [projStats]);
+  const grpDeptOpts = useMemo(
+    () => [...new Set(
+      projStats.filter(x => !grpRegion || x.p.region === grpRegion)
+        .map(x => x.p.dept).filter(Boolean))].sort(),
+    [projStats, grpRegion]);
+
+  /* 时间窗口（到日）：累计 = 自基准日前起（含基准日已完成产值） */
+  const grpRange = useMemo(() => {
+    const y = new Date().getFullYear();
+    const m = new Date().getMonth() + 1;
+    if (grpTime === 'custom') return { from: grpFrom || '0000-01-01', to: grpTo || today, custom: true };
+    if (grpTime === 'year') return { from: `${y}-01-01`, to: today, custom: false };
+    if (grpTime === 'month') return { from: `${y}-${p2(m)}-01`, to: today, custom: false };
+    if (grpTime === 'week') return curWeek ? { from: curWeek.start, to: today, custom: false }
+      : { from: '0000-01-01', to: today, custom: false };
+    if (grpTime === 'day') return { from: today, to: today, custom: false };
+    return { from: '0000-01-01', to: today, custom: false };
+  }, [grpTime, grpFrom, grpTo, today, curWeek]);
+
+  /* 双组指标（时间窗口 + 区域/项目部过滤） */
+  const grpCards = useMemo(() => {
+    const isInside = (gs: string) => gs === '浙高运' || gs === '沪杭甬';
+    const pool = projStats.filter(x =>
+      (!grpRegion || x.p.region === grpRegion) && (!grpDept || x.p.dept === grpDept));
+    const reports = getDailyReports();
+    /* 窗口相交的标准周（计划按周编制，取相交周的计划合计） */
+    const weekKeys = buildWeeks(baseDateOf(), today)
+      .filter(w => w.start <= grpRange.to && w.end >= grpRange.from)
+      .map(w => w.key);
+
+    const calc = (inside: boolean) => {
+      const list = pool.filter(x => isInside(x.p.groupSide || '') === inside);
+      const n = list.length;
+      const owners = [...new Set(list.map(x => x.p.groupSide).filter(Boolean))];
+      const amount = list.reduce((s, x) => s + x.amount, 0);
+      const ids = new Set(list.map(x => x.p.id));
+      /* 范围内实际产值（窗口起点早于基准日时计入基准日已完成） */
+      let value = 0;
+      list.forEach(x => { if (grpRange.from <= (x.p.baseDate || '9999')) value += x.p.baseDoneValue || 0; });
+      reports.forEach(r => {
+        if (r.date < grpRange.from || r.date > grpRange.to) return;
+        r.lines.forEach(l => { if (ids.has(l.projectId)) value += l.dayValue || 0; });
+      });
+      const rate = amount > 0 ? value / amount : null;
+      /* 工期进度（窗口内已过工期天数占比，金额加权） */
+      const schedOf = (x: ProjStat) => {
+        if (x.totalDays === null || x.totalDays <= 0 || !x.p.startDate || !x.p.endDate) return null;
+        const s = Math.max(parseD(x.p.startDate).getTime(), parseD(grpRange.from).getTime());
+        const e = Math.min(parseD(x.p.endDate).getTime(), parseD(grpRange.to).getTime());
+        return e > s ? ((e - s) / DAY) / x.totalDays : 0;
+      };
+      const schedAmt = list.filter(x => schedOf(x) !== null).reduce((s, x) => s + x.amount, 0);
+      const sched = schedAmt > 0
+        ? list.reduce((s, x) => s + (schedOf(x) ?? 0) * x.amount, 0) / schedAmt : null;
+      /* 计划率（窗口相交周的计划合计 ÷ 总金额，加权） */
+      const planCum = list.reduce((s, x) => s + weekKeys.reduce((ss, k) => ss + planOf(x.p, k), 0), 0);
+      const planRate = amount > 0 ? planCum / amount : null;
+      return {
+        n, owners, amount, value, rate, sched, planRate,
+        onTime: list.filter(x => x.onTime).length,
+        red: list.filter(x => x.warn === 'red').length,
+        yellow: list.filter(x => x.warn === 'yellow').length,
+      };
+    };
+    return { inside: calc(true), outside: calc(false) };
+  }, [projStats, grpRegion, grpDept, grpRange, today]);
+
+  const grpTimeLabel = grpTime === 'cum' ? '累计'
+    : grpTime === 'year' ? '本年'
+    : grpTime === 'month' ? '本月'
+    : grpTime === 'week' ? `本周（${curWeek ? curWeek.label : '标准周'}）`
+    : grpTime === 'day' ? '本日'
+    : `自定义 ${grpFrom || '…'} ~ ${grpTo || '…'}`;
+
+  const resetGrpFilters = () => {
+    setGrpTime('cum'); setGrpFrom(''); setGrpTo('');
+    setGrpRegion(''); setGrpDept('');
+  };
 
   /* ==================== 作战总览：今日战报 ==================== */
   const daily = useMemo(() => {
@@ -380,6 +473,110 @@ export default function CampaignDashboard() {
         ))}
       </div>
 
+      {/* ===== 集团内 / 集团外 对比卡片 ===== */}
+      <div className="mb-4">
+        {/* 过滤条件 */}
+        <div className="bg-white border border-slate-200 shadow-sm rounded-xl p-3 mb-3">
+          <div className="flex flex-wrap items-end gap-3">
+            <div>
+              <div className="text-xs text-slate-500 mb-1">时间</div>
+              <select className={selCls} value={grpTime}
+                onChange={e => setGrpTime(e.target.value as typeof grpTime)}>
+                <option value="cum">累计</option>
+                <option value="year">本年</option>
+                <option value="month">本月</option>
+                <option value="week">本周（标准周）</option>
+                <option value="day">本日</option>
+                <option value="custom">自定义时间段</option>
+              </select>
+            </div>
+            {grpTime === 'custom' && (
+              <>
+                <div>
+                  <div className="text-xs text-slate-500 mb-1">起始日期</div>
+                  <input type="date" className={selCls} value={grpFrom}
+                    onChange={e => setGrpFrom(e.target.value)} />
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500 mb-1">截止日期</div>
+                  <input type="date" className={selCls} value={grpTo}
+                    onChange={e => setGrpTo(e.target.value)} />
+                </div>
+              </>
+            )}
+            <div>
+              <div className="text-xs text-slate-500 mb-1">区域</div>
+              <select className={selCls} value={grpRegion}
+                onChange={e => { setGrpRegion(e.target.value); setGrpDept(''); }}>
+                <option value="">全部</option>
+                {grpRegionOpts.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
+            <div>
+              <div className="text-xs text-slate-500 mb-1">项目部</div>
+              <select className={selCls} value={grpDept} onChange={e => setGrpDept(e.target.value)}>
+                <option value="">全部</option>
+                {grpDeptOpts.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+            <button onClick={resetGrpFilters}
+              className="h-9 px-4 rounded-lg bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 text-sm font-medium">
+              重置
+            </button>
+            <span className="text-[11px] text-slate-400 self-center">统计口径：{grpTimeLabel}</span>
+          </div>
+        </div>
+
+        {/* 双卡片 */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+          {([
+            { key: 'in', title: '集团内', accent: 'from-sky-500 to-cyan-400', g: grpCards.inside },
+            { key: 'out', title: '集团外', accent: 'from-orange-500 to-amber-400', g: grpCards.outside },
+          ] as const).map(card => {
+            const g = card.g;
+            const devSched = g.rate !== null && g.sched !== null ? g.rate - g.sched : null;
+            const devPlan = g.rate !== null && g.planRate !== null ? g.rate - g.planRate : null;
+            const onTimePct = g.n > 0 ? `${Math.round(g.onTime / g.n * 100)}%` : '—';
+            return (
+              <div key={card.key} className="bg-white border border-slate-200 shadow-sm rounded-2xl overflow-hidden">
+                <div className={`h-1.5 bg-gradient-to-r ${card.accent}`} />
+                <div className="p-4">
+                  <div className="flex items-baseline justify-between gap-2 mb-3">
+                    <div>
+                      <div className="text-lg font-bold text-slate-900">{card.title}</div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">
+                        {g.owners.length ? g.owners.join(' + ') : '—'} · {g.n} 个项目
+                      </div>
+                    </div>
+                    <div className="text-[10px] text-slate-400 bg-slate-50 border border-slate-200 rounded-full px-2 py-0.5 shrink-0">
+                      {grpTimeLabel}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {[
+                      { label: '实际完成率', v: pct(g.rate), cls: 'text-slate-900' },
+                      { label: '工期进度', v: pct(g.sched), cls: 'text-slate-900' },
+                      { label: '实际-应完成', v: devPct(devSched), cls: devCls(devSched) },
+                      { label: '本周计划率', v: pct(g.planRate), cls: 'text-slate-900' },
+                      { label: '实际-本周计划', v: devPct(devPlan), cls: devCls(devPlan) },
+                      { label: `按期项目(占比${onTimePct})`, v: `${g.onTime} / ${g.n}`,
+                        cls: g.n > 0 && g.onTime / g.n >= 0.8 ? 'text-emerald-600' : g.n > 0 && g.onTime / g.n >= 0.5 ? 'text-amber-600' : 'text-slate-900' },
+                      { label: '进度预警(红/黄)', v: `${g.red} / ${g.yellow}`, cls: 'text-rose-600' },
+                      { label: '累计完成(万)', v: fmt(g.value), cls: 'text-slate-900' },
+                    ].map(m => (
+                      <div key={m.label} className="bg-slate-50 rounded-lg px-3 py-2.5">
+                        <div className="text-[11px] text-slate-500 mb-0.5">{m.label}</div>
+                        <div className={`text-lg font-bold ${m.cls}`}>{m.v}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* ===== 今日战报 ===== */}
       <div className="mb-4">
         <div className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
@@ -404,6 +601,9 @@ export default function CampaignDashboard() {
           </div>
         )}
       </div>
+
+      {/* ===== 班组工作日图（病害/罩面：总计划 · 累计完成 · 剩余；按区域/项目部/项目 + 搜索） ===== */}
+      <CrewDaysChart />
 
       {/* ===== 多维对比（3 图） ===== */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
@@ -663,6 +863,9 @@ export default function CampaignDashboard() {
           </div>
         );
       })()}
+
+      {/* ===== 班组资源测算器（区域 → 项目部 → 项目 三级下钻） ===== */}
+      <CrewResourceCalculator />
 
       {/* ===== 进度预警分布 + 区域对比 ===== */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
